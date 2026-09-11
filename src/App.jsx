@@ -7,6 +7,10 @@ import {
 } from "react-router-dom";
 
 import "./App.css";
+import Dashboard from "./Dashboard";
+import AdminDashboard from "./AdminDashboard";
+
+
 /* =========================
    SCHOOL LOGO
 ========================= */
@@ -14,6 +18,7 @@ import "./App.css";
 function Logo() {
   return (
     <div className="school-header">
+
       <img
         src="/LOGO.JPG"
         alt="Alihsan Girls Secondary School Logo"
@@ -21,27 +26,35 @@ function Logo() {
       />
 
       <div className="school-name">
-        <h1>AL-IHSAN GIRLS </h1>
-      <h2>SECONDARY SCHOOL</h2>
+
+        <h1>AL-IHSAN GIRLS</h1>
+
+        <h2>SECONDARY SCHOOL</h2>
+
       </div>
+
     </div>
   );
 }
+
 
 /* =========================
    HOME / ROLE SELECTION
 ========================= */
 
 function RoleSelection() {
+
   const navigate = useNavigate();
 
   return (
     <div className="page">
+
       <div className="role-card">
 
         <Logo />
 
         <div className="welcome">
+
           <h1>Biometric Attendance System</h1>
 
           <p>
@@ -51,7 +64,9 @@ function RoleSelection() {
           <p className="instruction">
             Please select your role to continue
           </p>
+
         </div>
+
 
         <div className="role-buttons">
 
@@ -59,60 +74,81 @@ function RoleSelection() {
             className="role-button employee"
             onClick={() => navigate("/employee-login")}
           >
+
             <span className="role-icon">👩‍💼</span>
 
             <div>
               <strong>Employee</strong>
-              <small>Employee attendance & account</small>
+              <small>
+                Employee attendance & account
+              </small>
             </div>
+
           </button>
+
 
           <button
             className="role-button administrator"
             onClick={() => navigate("/administrator")}
           >
+
             <span className="role-icon">👩‍💻</span>
 
             <div>
               <strong>Administrator</strong>
-              <small>Manage employees & attendance</small>
+              <small>
+                Manage employees & attendance
+              </small>
             </div>
+
           </button>
 
         </div>
+
 
         <footer>
           © 2026 Alihsan Girls Secondary School
         </footer>
 
       </div>
+
     </div>
   );
 }
+
 
 /* =========================
    EMPLOYEE LOGIN
 ========================= */
 
 function EmployeeLogin() {
+
   const navigate = useNavigate();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
+
   const handleLogin = (e) => {
+
     e.preventDefault();
 
     if (!username || !password) {
+
       alert("Please enter username and password.");
+
       return;
     }
 
-    // Temporary login
-    localStorage.setItem("employeeLoggedIn", "true");
+
+    localStorage.setItem(
+      "employeeLoggedIn",
+      "true"
+    );
 
     navigate("/employee-dashboard");
   };
+
 
   return (
     <div className="page">
@@ -127,31 +163,43 @@ function EmployeeLogin() {
           Login to access your attendance system
         </p>
 
+
         <form onSubmit={handleLogin}>
 
-          <label>Employee ID / Username</label>
+          <label>
+            Employee ID / Username
+          </label>
 
           <input
             type="text"
             placeholder="Enter employee ID"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) =>
+              setUsername(e.target.value)
+            }
           />
 
-          <label>Password</label>
+
+          <label>
+            Password
+          </label>
 
           <input
             type="password"
             placeholder="Enter password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
           />
+
 
           <button className="primary-button">
             Login
           </button>
 
         </form>
+
 
         <button
           className="back-button"
@@ -166,11 +214,13 @@ function EmployeeLogin() {
   );
 }
 
+
 /* =========================
    ADMINISTRATOR PORTAL
 ========================= */
 
 function AdministratorPortal() {
+
   const navigate = useNavigate();
 
   return (
@@ -186,37 +236,58 @@ function AdministratorPortal() {
           Select an action to continue
         </p>
 
+
         <div className="admin-actions">
 
           <button
             className="admin-action register"
-            onClick={() => navigate("/admin/register")}
+            onClick={() =>
+              navigate("/admin/register")
+            }
           >
+
             <span>👤+</span>
 
             <div>
-              <strong>Register Employee</strong>
+
+              <strong>
+                Register Employee
+              </strong>
+
               <small>
                 Create a new employee account
               </small>
+
             </div>
+
           </button>
+
 
           <button
             className="admin-action login"
-            onClick={() => navigate("/admin/login")}
+            onClick={() =>
+              navigate("/admin/login")
+            }
           >
+
             <span>🔐</span>
 
             <div>
-              <strong>Administrator Login</strong>
+
+              <strong>
+                Administrator Login
+              </strong>
+
               <small>
                 Login to administrator dashboard
               </small>
+
             </div>
+
           </button>
 
         </div>
+
 
         <button
           className="back-button"
@@ -231,14 +302,17 @@ function AdministratorPortal() {
   );
 }
 
+
 /* =========================
    ADMIN REGISTER EMPLOYEE
 ========================= */
 
 function AdminRegister() {
+
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
+
     employeeId: "",
     firstName: "",
     lastName: "",
@@ -247,17 +321,27 @@ function AdminRegister() {
     department: "",
     position: "",
     hireDate: "",
+
   });
 
+
   const handleChange = (e) => {
+
     setForm({
+
       ...form,
+
       [e.target.name]: e.target.value,
+
     });
+
   };
 
+
   const handleRegister = (e) => {
+
     e.preventDefault();
+
 
     if (
       !form.employeeId ||
@@ -269,36 +353,53 @@ function AdminRegister() {
       !form.position ||
       !form.hireDate
     ) {
-      alert("Please fill in all employee fields.");
+
+      alert(
+        "Please fill in all employee fields."
+      );
+
       return;
     }
+
 
     const employees =
-      JSON.parse(localStorage.getItem("employees")) || [];
+      JSON.parse(
+        localStorage.getItem("employees")
+      ) || [];
 
-    // Prevent duplicate Employee ID
-    const employeeExists = employees.some(
-      (employee) =>
-        employee.employeeId.toLowerCase() ===
-        form.employeeId.toLowerCase()
-    );
+
+    const employeeExists =
+      employees.some(
+        (employee) =>
+          employee.employeeId.toLowerCase() ===
+          form.employeeId.toLowerCase()
+      );
+
 
     if (employeeExists) {
+
       alert("Employee ID already exists.");
+
       return;
     }
 
+
     employees.push(form);
+
 
     localStorage.setItem(
       "employees",
       JSON.stringify(employees)
     );
 
-    alert("Employee registered successfully!");
 
-    // Clear form
+    alert(
+      "Employee registered successfully!"
+    );
+
+
     setForm({
+
       employeeId: "",
       firstName: "",
       lastName: "",
@@ -307,13 +408,17 @@ function AdminRegister() {
       department: "",
       position: "",
       hireDate: "",
+
     });
+
 
     navigate("/admin/dashboard");
   };
 
+
   return (
     <div className="page">
+
       <div className="form-card">
 
         <Logo />
@@ -324,13 +429,19 @@ function AdminRegister() {
           Register a new employee
         </p>
 
+
         <form onSubmit={handleRegister}>
 
           <div className="form-grid">
 
+
             {/* Employee ID */}
+
             <div>
-              <label>Employee ID *</label>
+
+              <label>
+                Employee ID *
+              </label>
 
               <input
                 name="employeeId"
@@ -339,11 +450,17 @@ function AdminRegister() {
                 value={form.employeeId}
                 onChange={handleChange}
               />
+
             </div>
 
+
             {/* First Name */}
+
             <div>
-              <label>First Name *</label>
+
+              <label>
+                First Name *
+              </label>
 
               <input
                 name="firstName"
@@ -352,11 +469,17 @@ function AdminRegister() {
                 value={form.firstName}
                 onChange={handleChange}
               />
+
             </div>
 
+
             {/* Last Name */}
+
             <div>
-              <label>Last Name *</label>
+
+              <label>
+                Last Name *
+              </label>
 
               <input
                 name="lastName"
@@ -365,11 +488,17 @@ function AdminRegister() {
                 value={form.lastName}
                 onChange={handleChange}
               />
+
             </div>
 
+
             {/* Email */}
+
             <div>
-              <label>Email *</label>
+
+              <label>
+                Email *
+              </label>
 
               <input
                 name="email"
@@ -378,11 +507,17 @@ function AdminRegister() {
                 value={form.email}
                 onChange={handleChange}
               />
+
             </div>
 
-            {/* Phone Number */}
+
+            {/* Phone */}
+
             <div>
-              <label>Phone Number *</label>
+
+              <label>
+                Phone Number *
+              </label>
 
               <input
                 name="phone"
@@ -391,17 +526,24 @@ function AdminRegister() {
                 value={form.phone}
                 onChange={handleChange}
               />
+
             </div>
 
+
             {/* Department */}
+
             <div>
-              <label>Department *</label>
+
+              <label>
+                Department *
+              </label>
 
               <select
                 name="department"
                 value={form.department}
                 onChange={handleChange}
               >
+
                 <option value="">
                   Select department
                 </option>
@@ -429,12 +571,19 @@ function AdminRegister() {
                 <option value="Other">
                   Other
                 </option>
+
               </select>
+
             </div>
 
+
             {/* Position */}
+
             <div>
-              <label>Position *</label>
+
+              <label>
+                Position *
+              </label>
 
               <input
                 name="position"
@@ -443,11 +592,17 @@ function AdminRegister() {
                 value={form.position}
                 onChange={handleChange}
               />
+
             </div>
 
+
             {/* Hire Date */}
+
             <div>
-              <label>Hire Date *</label>
+
+              <label>
+                Hire Date *
+              </label>
 
               <input
                 name="hireDate"
@@ -455,9 +610,11 @@ function AdminRegister() {
                 value={form.hireDate}
                 onChange={handleChange}
               />
+
             </div>
 
           </div>
+
 
           <button
             type="submit"
@@ -468,40 +625,90 @@ function AdminRegister() {
 
         </form>
 
+
         <button
           className="back-button"
-          onClick={() => navigate("/administrator")}
+          onClick={() =>
+            navigate("/administrator")
+          }
         >
           ← Back
         </button>
 
       </div>
+
     </div>
   );
 }
+
 
 /* =========================
    ADMIN LOGIN
 ========================= */
 
 function AdminLogin() {
+
   const navigate = useNavigate();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
+
   const handleLogin = (e) => {
+
     e.preventDefault();
 
+
     if (!username || !password) {
-      alert("Please enter administrator credentials.");
+
+      alert(
+        "Please enter administrator credentials."
+      );
+
       return;
     }
 
-    localStorage.setItem("adminLoggedIn", "true");
+
+    /*
+      Create administrator information
+      from the login details.
+    */
+
+    const adminData = {
+
+      username: username,
+
+      fullName: username,
+
+      email: `${username}@alihsan.ac.tz`,
+
+      phone: "Not provided",
+
+      position: "Administrator",
+
+    };
+
+
+    /*
+      Save administrator information
+      so AdminDashboard can use it.
+    */
+
+    localStorage.setItem(
+      "adminData",
+      JSON.stringify(adminData)
+    );
+
+
+    localStorage.setItem(
+      "adminLoggedIn",
+      "true"
+    );
+
 
     navigate("/admin/dashboard");
   };
+
 
   return (
     <div className="page">
@@ -510,31 +717,44 @@ function AdminLogin() {
 
         <Logo />
 
-        <h1>Administrator Login</h1>
+        <h1>
+          Administrator Login
+        </h1>
 
         <p className="auth-subtitle">
           Login to manage the attendance system
         </p>
 
+
         <form onSubmit={handleLogin}>
 
-          <label>Administrator Username</label>
+          <label>
+            Administrator Username
+          </label>
 
           <input
             type="text"
             placeholder="Enter username"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) =>
+              setUsername(e.target.value)
+            }
           />
 
-          <label>Password</label>
+
+          <label>
+            Password
+          </label>
 
           <input
             type="password"
             placeholder="Enter password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) =>
+              setPassword(e.target.value)
+            }
           />
+
 
           <button className="primary-button">
             Login as Administrator
@@ -542,9 +762,12 @@ function AdminLogin() {
 
         </form>
 
+
         <button
           className="back-button"
-          onClick={() => navigate("/administrator")}
+          onClick={() =>
+            navigate("/administrator")
+          }
         >
           ← Back
         </button>
@@ -555,70 +778,128 @@ function AdminLogin() {
   );
 }
 
+
 /* =========================
    EMPLOYEE DASHBOARD
 ========================= */
-/* =========================
-   EMPLOYEE DASHBOARD (ACTIVE BIOMETRIC)
-========================= */
 
 function EmployeeDashboard() {
+
   const navigate = useNavigate();
 
-  // State to track attendance status
-  const [status, setStatus] = useState("Not Checked In");
-  const [checkInTime, setCheckInTime] = useState("--:--");
-  const [isScanning, setIsScanning] = useState(false);
+  const [status, setStatus] =
+    useState("Not Checked In");
+
+  const [checkInTime, setCheckInTime] =
+    useState("--:--");
+
+  const [isScanning, setIsScanning] =
+    useState(false);
+
 
   const logout = () => {
-    localStorage.removeItem("employeeLoggedIn");
+
+    localStorage.removeItem(
+      "employeeLoggedIn"
+    );
+
     navigate("/");
   };
 
-  // Function to trigger native WebAuthn biometric prompt
-  const handleBiometricScan = async () => {
-    setIsScanning(true);
 
-    try {
-      if (window.PublicKeyCredential) {
-        const challenge = new Uint8Array(32);
-        window.crypto.getRandomValues(challenge);
+  const handleBiometricScan =
+    async () => {
 
-        // Triggers the device/phone biometric authentication prompt
-        await navigator.credentials.get({
-          publicKey: {
-            challenge: challenge,
-            timeout: 60000,
-            userVerification: "preferred",
-          },
-        });
+      setIsScanning(true);
+
+      try {
+
+        if (window.PublicKeyCredential) {
+
+          const challenge =
+            new Uint8Array(32);
+
+          window.crypto.getRandomValues(
+            challenge
+          );
+
+
+          await navigator.credentials.get({
+
+            publicKey: {
+
+              challenge: challenge,
+
+              timeout: 60000,
+
+              userVerification:
+                "preferred",
+
+            },
+
+          });
+
+        }
+
+
+        const currentTime =
+          new Date().toLocaleTimeString(
+            [],
+            {
+              hour: "2-digit",
+              minute: "2-digit",
+            }
+          );
+
+
+        setStatus("Checked In");
+
+        setCheckInTime(
+          currentTime
+        );
+
+
+        alert(
+          "Biometric verification successful! Attendance recorded."
+        );
+
+      } catch (error) {
+
+        console.error(
+          "Biometric scan error:",
+          error
+        );
+
+
+        const currentTime =
+          new Date().toLocaleTimeString(
+            [],
+            {
+              hour: "2-digit",
+              minute: "2-digit",
+            }
+          );
+
+
+        setStatus("Checked In");
+
+        setCheckInTime(
+          currentTime
+        );
+
+
+        alert(
+          "Attendance verified successfully!"
+        );
+
+      } finally {
+
+        setIsScanning(false);
+
       }
 
-      // Execute upon successful biometric verification
-      const currentTime = new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+    };
 
-      setStatus("Checked In");
-      setCheckInTime(currentTime);
-      alert("Biometric verification successful! Attendance recorded.");
-
-    } catch (error) {
-      console.error("Biometric scan error:", error);
-      
-      // Fallback update for simulation/test environments
-      const currentTime = new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      setStatus("Checked In");
-      setCheckInTime(currentTime);
-      alert("Attendance verified successfully!");
-    } finally {
-      setIsScanning(false);
-    }
-  };
 
   return (
     <div className="dashboard">
@@ -636,59 +917,103 @@ function EmployeeDashboard() {
 
       </header>
 
+
       <main className="dashboard-content">
 
-        <h1>Employee Dashboard</h1>
+        <h1>
+          Employee Dashboard
+        </h1>
 
         <p>
           Welcome to Alihsan Girls Secondary School
           Attendance System.
         </p>
 
+
         <div className="attendance-card">
 
-          <div 
-            className="fingerprint" 
-            onClick={handleBiometricScan} 
-            style={{ cursor: 'pointer' }}
+          <div
+            className="fingerprint"
+            onClick={handleBiometricScan}
+            style={{
+              cursor: "pointer"
+            }}
           >
             👆
           </div>
 
-          <h2>Biometric Attendance</h2>
+
+          <h2>
+            Biometric Attendance
+          </h2>
+
 
           <p>
-            Place your registered fingerprint on the
-            biometric scanner.
+            Place your registered fingerprint
+            on the biometric scanner.
           </p>
 
-          <button 
-            className="primary-button" 
+
+          <button
+            className="primary-button"
             onClick={handleBiometricScan}
             disabled={isScanning}
           >
-            {isScanning ? "Scanning..." : "Scan Fingerprint"}
+
+            {isScanning
+              ? "Scanning..."
+              : "Scan Fingerprint"}
+
           </button>
 
         </div>
 
+
         <div className="stats">
 
           <div>
-            <h3>Today's Status</h3>
-            <strong style={{ color: status === "Checked In" ? "#2e7d32" : "#d32f2f" }}>
+
+            <h3>
+              Today's Status
+            </h3>
+
+            <strong
+              style={{
+                color:
+                  status === "Checked In"
+                    ? "#2e7d32"
+                    : "#d32f2f",
+              }}
+            >
               {status}
             </strong>
+
           </div>
 
-          <div>
-            <h3>Check In Time</h3>
-            <strong>{checkInTime}</strong>
-          </div>
 
           <div>
-            <h3>Check Out Time</h3>
-            <strong>--:--</strong>
+
+            <h3>
+              Check In Time
+            </h3>
+
+            <strong>
+              {checkInTime}
+            </strong>
+
+          </div>
+
+
+          <div>
+
+            <h3>
+              Check Out Time
+            </h3>
+
+            <strong>
+              --:--
+            </strong>
+
           </div>
 
         </div>
@@ -698,191 +1023,136 @@ function EmployeeDashboard() {
     </div>
   );
 }
+
+
 /* =========================
-   ADMIN DASHBOARD
+   PROTECTED ADMIN DASHBOARD
 ========================= */
 
-function AdminDashboard() {
-  const navigate = useNavigate();
+function AdminDashboardPage() {
 
-  const employees =
-    JSON.parse(localStorage.getItem("employees")) || [];
+  /*
+    Get administrator information
+    from localStorage.
+  */
 
-  const logout = () => {
-    localStorage.removeItem("adminLoggedIn");
-    navigate("/");
-  };
+  const savedAdmin =
+    localStorage.getItem("adminData");
+
+
+  const admin =
+    savedAdmin
+      ? JSON.parse(savedAdmin)
+      : null;
+
+
+  /*
+    If administrator is not logged in,
+    send them back to login.
+  */
+
+  if (
+    localStorage.getItem(
+      "adminLoggedIn"
+    ) !== "true"
+  ) {
+
+    return (
+      <Navigate
+        to="/admin/login"
+        replace
+      />
+    );
+  }
+
 
   return (
-    <div className="dashboard">
-
-      <header className="dashboard-header">
-
-        <Logo />
-
-        <button
-          className="logout-button"
-          onClick={logout}
-        >
-          Logout
-        </button>
-
-      </header>
-
-      <main className="dashboard-content">
-
-        <h1>Administrator Dashboard</h1>
-
-        <p>
-          Manage employees and monitor attendance.
-        </p>
-
-        <div className="admin-stats">
-
-          <div className="stat-card">
-            <span>👥</span>
-            <h3>Total Employees</h3>
-            <strong>{employees.length}</strong>
-          </div>
-
-          <div className="stat-card">
-            <span>✅</span>
-            <h3>Present Today</h3>
-            <strong>0</strong>
-          </div>
-
-          <div className="stat-card">
-            <span>⏰</span>
-            <h3>Late Today</h3>
-            <strong>0</strong>
-          </div>
-
-          <div className="stat-card">
-            <span>❌</span>
-            <h3>Absent Today</h3>
-            <strong>0</strong>
-          </div>
-
-        </div>
-
-        <section className="employee-section">
-
-          <div className="section-header">
-
-            <h2>Registered Employees</h2>
-
-            <button
-              className="small-button"
-              onClick={() => navigate("/admin/register")}
-            >
-              + Register Employee
-            </button>
-
-          </div>
-
-          {employees.length === 0 ? (
-            <div className="empty">
-              No employees registered yet.
-            </div>
-          ) : (
-            <div className="table-container">
-
-              <table>
-
-                <thead>
-                  <tr>
-                    <th>Employee ID</th>
-                    <th>First Name</th>
-                    <th>Last Name</th>
-                    <th>Email</th>
-                    <th>Phone Number</th>
-                    <th>Department</th>
-                    <th>Position</th>
-                    <th>Hire Date</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-
-                  {employees.map((employee, index) => (
-                    <tr key={index}>
-
-                    <td>{employee.employeeId}</td>
-
-                    <td>{employee.firstName}</td>
-
-                    <td>{employee.lastName}</td>
-
-                    <td>{employee.email}</td>
-
-                    <td>{employee.phone}</td>
-
-                    <td>{employee.department}</td>
-
-                    <td>{employee.position}</td>
-
-                    <td>{employee.hireDate}</td>
-
-                    </tr>
-                  ))}
-
-                </tbody>
-
-              </table>
-
-            </div>
-          )}
-
-        </section>
-
-      </main>
-
-    </div>
+    <AdminDashboard
+      admin={admin}
+    />
   );
 }
+
 
 /* =========================
    APP ROUTES
 ========================= */
 
 function App() {
+
   return (
+
     <Routes>
+
+      {/* ROLE SELECTION */}
 
       <Route
         path="/"
         element={<RoleSelection />}
       />
 
+
+      {/* EMPLOYEE LOGIN */}
+
       <Route
         path="/employee-login"
         element={<EmployeeLogin />}
       />
 
+
+      {/* EMPLOYEE DASHBOARD */}
+
       <Route
         path="/employee-dashboard"
-        element={<EmployeeDashboard />}
+        element={
+          <Dashboard
+            onLogout={() => {
+
+              localStorage.removeItem(
+                "employeeLoggedIn"
+              );
+
+              window.location.href = "/";
+
+            }}
+          />
+        }
       />
+
+
+      {/* ADMINISTRATOR PORTAL */}
 
       <Route
         path="/administrator"
         element={<AdministratorPortal />}
       />
 
+
+      {/* ADMIN REGISTER */}
+
       <Route
         path="/admin/register"
         element={<AdminRegister />}
       />
+
+
+      {/* ADMIN LOGIN */}
 
       <Route
         path="/admin/login"
         element={<AdminLogin />}
       />
 
+
+      {/* ADMIN DASHBOARD */}
+
       <Route
         path="/admin/dashboard"
-        element={<AdminDashboard />}
+        element={<AdminDashboardPage />}
       />
+
+
+      {/* UNKNOWN ROUTE */}
 
       <Route
         path="*"
@@ -890,7 +1160,9 @@ function App() {
       />
 
     </Routes>
+
   );
 }
+
 
 export default App;
