@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import "./Dashboard.css";
+import HelpCenter from "./HelpCenter";
+import ChangePassword from "./ChangePassword";
 
 // Function ya kuhesabu masaa kati ya Sign In na Sign Out
 const calculateHours = (signInTime, signOutTime) => {
@@ -558,6 +560,12 @@ function Dashboard({ employee, onLogout }) {
 
       case "Attendance report":
         return <AttendanceReport employee={employee} />;
+
+        case "Help center":
+  return <HelpCenter />;
+
+  case "Setting":
+  return <ChangePassword employee={employee} />;
 
       case "Dashboard":
       default:
