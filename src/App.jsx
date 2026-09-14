@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import {
   Routes,
@@ -47,6 +48,7 @@ function RoleSelection() {
   const navigate = useNavigate();
 
   return (
+
     <div className="page">
 
       <div className="role-card">
@@ -55,7 +57,9 @@ function RoleSelection() {
 
         <div className="welcome">
 
-          <h1>Biometric Attendance System</h1>
+          <h1>
+            Biometric Attendance System
+          </h1>
 
           <p>
             Welcome to Alihsan Girls Secondary School
@@ -70,35 +74,61 @@ function RoleSelection() {
 
         <div className="role-buttons">
 
+          {/* =========================
+              EMPLOYEE
+          ========================= */}
+
           <button
             className="role-button employee"
-            onClick={() => navigate("/employee-login")}
+            onClick={() =>
+              navigate("/employee-login")
+            }
           >
 
-            <span className="role-icon">👩‍💼</span>
+            <span className="role-icon">
+              👩‍💼
+            </span>
 
             <div>
-              <strong>Employee</strong>
+
+              <strong>
+                Employee
+              </strong>
+
               <small>
                 Employee attendance & account
               </small>
+
             </div>
 
           </button>
 
 
+          {/* =========================
+              ADMINISTRATOR
+          ========================= */}
+
           <button
             className="role-button administrator"
-            onClick={() => navigate("/administrator")}
+            onClick={() =>
+              navigate("/admin/login")
+            }
           >
 
-            <span className="role-icon">👩‍💻</span>
+            <span className="role-icon">
+              👩‍💻
+            </span>
 
             <div>
-              <strong>Administrator</strong>
+
+              <strong>
+                Administrator
+              </strong>
+
               <small>
                 Manage employees & attendance
               </small>
+
             </div>
 
           </button>
@@ -135,7 +165,9 @@ function EmployeeLogin() {
 
     if (!username || !password) {
 
-      alert("Please enter username and password.");
+      alert(
+        "Please enter username and password."
+      );
 
       return;
     }
@@ -151,13 +183,16 @@ function EmployeeLogin() {
 
 
   return (
+
     <div className="page">
 
       <div className="auth-card">
 
         <Logo />
 
-        <h1>Employee Login</h1>
+        <h1>
+          Employee Login
+        </h1>
 
         <p className="auth-subtitle">
           Login to access your attendance system
@@ -194,7 +229,10 @@ function EmployeeLogin() {
           />
 
 
-          <button className="primary-button">
+          <button
+            type="submit"
+            className="primary-button"
+          >
             Login
           </button>
 
@@ -203,436 +241,11 @@ function EmployeeLogin() {
 
         <button
           className="back-button"
-          onClick={() => navigate("/")}
-        >
-          ← Back to Role Selection
-        </button>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =========================
-   ADMINISTRATOR PORTAL
-========================= */
-
-function AdministratorPortal() {
-
-  const navigate = useNavigate();
-
-  return (
-    <div className="page">
-
-      <div className="auth-card">
-
-        <Logo />
-
-        <h1>Administrator Portal</h1>
-
-        <p className="auth-subtitle">
-          Select an action to continue
-        </p>
-
-
-        <div className="admin-actions">
-
-          <button
-            className="admin-action register"
-            onClick={() =>
-              navigate("/admin/register")
-            }
-          >
-
-            <span>👤+</span>
-
-            <div>
-
-              <strong>
-                Register Employee
-              </strong>
-
-              <small>
-                Create a new employee account
-              </small>
-
-            </div>
-
-          </button>
-
-
-          <button
-            className="admin-action login"
-            onClick={() =>
-              navigate("/admin/login")
-            }
-          >
-
-            <span>🔐</span>
-
-            <div>
-
-              <strong>
-                Administrator Login
-              </strong>
-
-              <small>
-                Login to administrator dashboard
-              </small>
-
-            </div>
-
-          </button>
-
-        </div>
-
-
-        <button
-          className="back-button"
-          onClick={() => navigate("/")}
-        >
-          ← Back to Role Selection
-        </button>
-
-      </div>
-
-    </div>
-  );
-}
-
-
-/* =========================
-   ADMIN REGISTER EMPLOYEE
-========================= */
-
-function AdminRegister() {
-
-  const navigate = useNavigate();
-
-  const [form, setForm] = useState({
-
-    employeeId: "",
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    department: "",
-    position: "",
-    hireDate: "",
-
-  });
-
-
-  const handleChange = (e) => {
-
-    setForm({
-
-      ...form,
-
-      [e.target.name]: e.target.value,
-
-    });
-
-  };
-
-
-  const handleRegister = (e) => {
-
-    e.preventDefault();
-
-
-    if (
-      !form.employeeId ||
-      !form.firstName ||
-      !form.lastName ||
-      !form.email ||
-      !form.phone ||
-      !form.department ||
-      !form.position ||
-      !form.hireDate
-    ) {
-
-      alert(
-        "Please fill in all employee fields."
-      );
-
-      return;
-    }
-
-
-    const employees =
-      JSON.parse(
-        localStorage.getItem("employees")
-      ) || [];
-
-
-    const employeeExists =
-      employees.some(
-        (employee) =>
-          employee.employeeId.toLowerCase() ===
-          form.employeeId.toLowerCase()
-      );
-
-
-    if (employeeExists) {
-
-      alert("Employee ID already exists.");
-
-      return;
-    }
-
-
-    employees.push(form);
-
-
-    localStorage.setItem(
-      "employees",
-      JSON.stringify(employees)
-    );
-
-
-    alert(
-      "Employee registered successfully!"
-    );
-
-
-    setForm({
-
-      employeeId: "",
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      department: "",
-      position: "",
-      hireDate: "",
-
-    });
-
-
-    navigate("/admin/dashboard");
-  };
-
-
-  return (
-    <div className="page">
-
-      <div className="form-card">
-
-        <Logo />
-
-        <h1>Register Employee</h1>
-
-        <p className="auth-subtitle">
-          Register a new employee
-        </p>
-
-
-        <form onSubmit={handleRegister}>
-
-          <div className="form-grid">
-
-
-            {/* Employee ID */}
-
-            <div>
-
-              <label>
-                Employee ID *
-              </label>
-
-              <input
-                name="employeeId"
-                type="text"
-                placeholder="e.g. AGS001"
-                value={form.employeeId}
-                onChange={handleChange}
-              />
-
-            </div>
-
-
-            {/* First Name */}
-
-            <div>
-
-              <label>
-                First Name *
-              </label>
-
-              <input
-                name="firstName"
-                type="text"
-                placeholder="Enter first name"
-                value={form.firstName}
-                onChange={handleChange}
-              />
-
-            </div>
-
-
-            {/* Last Name */}
-
-            <div>
-
-              <label>
-                Last Name *
-              </label>
-
-              <input
-                name="lastName"
-                type="text"
-                placeholder="Enter last name"
-                value={form.lastName}
-                onChange={handleChange}
-              />
-
-            </div>
-
-
-            {/* Email */}
-
-            <div>
-
-              <label>
-                Email *
-              </label>
-
-              <input
-                name="email"
-                type="email"
-                placeholder="employee@email.com"
-                value={form.email}
-                onChange={handleChange}
-              />
-
-            </div>
-
-
-            {/* Phone */}
-
-            <div>
-
-              <label>
-                Phone Number *
-              </label>
-
-              <input
-                name="phone"
-                type="tel"
-                placeholder="+255..."
-                value={form.phone}
-                onChange={handleChange}
-              />
-
-            </div>
-
-
-            {/* Department */}
-
-            <div>
-
-              <label>
-                Department *
-              </label>
-
-              <select
-                name="department"
-                value={form.department}
-                onChange={handleChange}
-              >
-
-                <option value="">
-                  Select department
-                </option>
-
-                <option value="Teaching">
-                  Teaching
-                </option>
-
-                <option value="Administration">
-                  Administration
-                </option>
-
-                <option value="Finance">
-                  Finance
-                </option>
-
-                <option value="ICT">
-                  ICT
-                </option>
-
-                <option value="Human Resources">
-                  Human Resources
-                </option>
-
-                <option value="Other">
-                  Other
-                </option>
-
-              </select>
-
-            </div>
-
-
-            {/* Position */}
-
-            <div>
-
-              <label>
-                Position *
-              </label>
-
-              <input
-                name="position"
-                type="text"
-                placeholder="e.g. Teacher"
-                value={form.position}
-                onChange={handleChange}
-              />
-
-            </div>
-
-
-            {/* Hire Date */}
-
-            <div>
-
-              <label>
-                Hire Date *
-              </label>
-
-              <input
-                name="hireDate"
-                type="date"
-                value={form.hireDate}
-                onChange={handleChange}
-              />
-
-            </div>
-
-          </div>
-
-
-          <button
-            type="submit"
-            className="primary-button"
-          >
-            Register Employee
-          </button>
-
-        </form>
-
-
-        <button
-          className="back-button"
           onClick={() =>
-            navigate("/administrator")
+            navigate("/")
           }
         >
-          ← Back
+          ← Back to Role Selection
         </button>
 
       </div>
@@ -670,8 +283,9 @@ function AdminLogin() {
 
 
     /*
-      Create administrator information
-      from the login details.
+      Administrator information.
+      Backend authentication can be
+      connected later.
     */
 
     const adminData = {
@@ -680,18 +294,20 @@ function AdminLogin() {
 
       fullName: username,
 
-      email: `${username}@alihsan.ac.tz`,
+      email:
+        `${username}@alihsan.ac.tz`,
 
-      phone: "Not provided",
+      phone:
+        "Not provided",
 
-      position: "Administrator",
+      position:
+        "Administrator",
 
     };
 
 
     /*
-      Save administrator information
-      so AdminDashboard can use it.
+      Save administrator information.
     */
 
     localStorage.setItem(
@@ -700,17 +316,27 @@ function AdminLogin() {
     );
 
 
+    /*
+      Mark administrator as logged in.
+    */
+
     localStorage.setItem(
       "adminLoggedIn",
       "true"
     );
 
 
+    /*
+      Go directly to
+      Administrator Dashboard.
+    */
+
     navigate("/admin/dashboard");
   };
 
 
   return (
+
     <div className="page">
 
       <div className="auth-card">
@@ -756,7 +382,10 @@ function AdminLogin() {
           />
 
 
-          <button className="primary-button">
+          <button
+            type="submit"
+            className="primary-button"
+          >
             Login as Administrator
           </button>
 
@@ -766,10 +395,10 @@ function AdminLogin() {
         <button
           className="back-button"
           onClick={() =>
-            navigate("/administrator")
+            navigate("/")
           }
         >
-          ← Back
+          ← Back to Role Selection
         </button>
 
       </div>
@@ -852,7 +481,9 @@ function EmployeeDashboard() {
           );
 
 
-        setStatus("Checked In");
+        setStatus(
+          "Checked In"
+        );
 
         setCheckInTime(
           currentTime
@@ -881,7 +512,9 @@ function EmployeeDashboard() {
           );
 
 
-        setStatus("Checked In");
+        setStatus(
+          "Checked In"
+        );
 
         setCheckInTime(
           currentTime
@@ -902,6 +535,7 @@ function EmployeeDashboard() {
 
 
   return (
+
     <div className="dashboard">
 
       <header className="dashboard-header">
@@ -925,8 +559,8 @@ function EmployeeDashboard() {
         </h1>
 
         <p>
-          Welcome to Alihsan Girls Secondary School
-          Attendance System.
+          Welcome to Alihsan Girls Secondary
+          School Attendance System.
         </p>
 
 
@@ -1037,7 +671,9 @@ function AdminDashboardPage() {
   */
 
   const savedAdmin =
-    localStorage.getItem("adminData");
+    localStorage.getItem(
+      "adminData"
+    );
 
 
   const admin =
@@ -1047,8 +683,7 @@ function AdminDashboardPage() {
 
 
   /*
-    If administrator is not logged in,
-    send them back to login.
+    Protect administrator dashboard.
   */
 
   if (
@@ -1058,18 +693,22 @@ function AdminDashboardPage() {
   ) {
 
     return (
+
       <Navigate
         to="/admin/login"
         replace
       />
+
     );
   }
 
 
   return (
+
     <AdminDashboard
       admin={admin}
     />
+
   );
 }
 
@@ -1084,27 +723,39 @@ function App() {
 
     <Routes>
 
-      {/* ROLE SELECTION */}
+
+      {/* =========================
+          ROLE SELECTION
+      ========================= */}
 
       <Route
         path="/"
-        element={<RoleSelection />}
+        element={
+          <RoleSelection />
+        }
       />
 
 
-      {/* EMPLOYEE LOGIN */}
+      {/* =========================
+          EMPLOYEE LOGIN
+      ========================= */}
 
       <Route
         path="/employee-login"
-        element={<EmployeeLogin />}
+        element={
+          <EmployeeLogin />
+        }
       />
 
 
-      {/* EMPLOYEE DASHBOARD */}
+      {/* =========================
+          EMPLOYEE DASHBOARD
+      ========================= */}
 
       <Route
         path="/employee-dashboard"
         element={
+
           <Dashboard
             onLogout={() => {
 
@@ -1116,47 +767,47 @@ function App() {
 
             }}
           />
+
         }
       />
 
 
-      {/* ADMINISTRATOR PORTAL */}
-
-      <Route
-        path="/administrator"
-        element={<AdministratorPortal />}
-      />
-
-
-      {/* ADMIN REGISTER */}
-
-      <Route
-        path="/admin/register"
-        element={<AdminRegister />}
-      />
-
-
-      {/* ADMIN LOGIN */}
+      {/* =========================
+          ADMINISTRATOR LOGIN
+      ========================= */}
 
       <Route
         path="/admin/login"
-        element={<AdminLogin />}
+        element={
+          <AdminLogin />
+        }
       />
 
 
-      {/* ADMIN DASHBOARD */}
+      {/* =========================
+          ADMINISTRATOR DASHBOARD
+      ========================= */}
 
       <Route
         path="/admin/dashboard"
-        element={<AdminDashboardPage />}
+        element={
+          <AdminDashboardPage />
+        }
       />
 
 
-      {/* UNKNOWN ROUTE */}
+      {/* =========================
+          UNKNOWN ROUTE
+      ========================= */}
 
       <Route
         path="*"
-        element={<Navigate to="/" />}
+        element={
+          <Navigate
+            to="/"
+            replace
+          />
+        }
       />
 
     </Routes>
