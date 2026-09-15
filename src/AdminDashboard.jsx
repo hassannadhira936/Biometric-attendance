@@ -1,19 +1,19 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import "./AdminDashboard.css";
 import AdminHelpCenter from "./AdminHelpCenter";
 
 function AdminDashboard({ admin }) {
 
-  // =========================
+  // =====================================================
   // GENERAL STATES
-  // =========================
+  // =====================================================
 
   const [activeMenu, setActiveMenu] = useState("Home");
   const [adminPhoto, setAdminPhoto] = useState(null);
 
-  // =========================
+  // =====================================================
   // EMPLOYEE STATES
-  // =========================
+  // =====================================================
 
   const [employeeForm, setEmployeeForm] = useState({
     employeeId: "",
@@ -29,9 +29,20 @@ function AdminDashboard({ admin }) {
   const [employees, setEmployees] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // =========================
+  // =====================================================
+  // ATTENDANCE STATES
+  // =====================================================
+
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+
+  const [selectedLocation, setSelectedLocation] = useState(null);
+
+  const [placeName, setPlaceName] = useState("");
+  const [locationLoading, setLocationLoading] = useState(false);
+
+  // =====================================================
   // MENU ITEMS
-  // =========================
+  // =====================================================
 
   const menuItems = [
     { name: "Home", icon: "🏠" },
@@ -41,9 +52,9 @@ function AdminDashboard({ admin }) {
     { name: "Help Center", icon: "❓" },
   ];
 
-  // =========================
+  // =====================================================
   // ADMIN INFORMATION
-  // =========================
+  // =====================================================
 
   const adminName =
     admin?.fullName ||
@@ -62,9 +73,93 @@ function AdminDashboard({ admin }) {
     admin?.position ||
     "Administrator";
 
-  // =========================
+  // =====================================================
+  // LOAD DATA FROM LOCAL STORAGE
+  // =====================================================
+
+  useEffect(() => {
+
+    // Load employees
+    const savedEmployees =
+      localStorage.getItem("employees");
+
+    if (savedEmployees) {
+      try {
+        setEmployees(JSON.parse(savedEmployees));
+      } catch (error) {
+        console.error(
+          "Error loading employees:",
+          error
+        );
+      }
+    }
+
+    // Load attendance
+    const savedAttendance =
+      localStorage.getItem("employeeAttendance");
+
+    if (savedAttendance) {
+      try {
+        const parsedAttendance =
+          JSON.parse(savedAttendance);
+
+        if (Array.isArray(parsedAttendance)) {
+          setAttendanceRecords(parsedAttendance);
+        }
+      } catch (error) {
+        console.error(
+          "Error loading attendance:",
+          error
+        );
+      }
+    }
+
+  }, []);
+
+  // =====================================================
+  // RELOAD ATTENDANCE WHEN ADMIN OPENS ATTENDANCE PAGE
+  // =====================================================
+
+  useEffect(() => {
+
+    if (activeMenu === "View Employees Attendance") {
+
+      const savedAttendance =
+        localStorage.getItem("employeeAttendance");
+
+      if (savedAttendance) {
+
+        try {
+
+          const parsedAttendance =
+            JSON.parse(savedAttendance);
+
+          if (Array.isArray(parsedAttendance)) {
+            setAttendanceRecords(parsedAttendance);
+          }
+
+        } catch (error) {
+
+          console.error(
+            "Error loading attendance:",
+            error
+          );
+
+        }
+
+      } else {
+
+        setAttendanceRecords([]);
+
+      }
+
+    }
+
+  }, [activeMenu]);
+
+  // =====================================================
   // ADMIN PHOTO UPLOAD
-  // =========================
+  // =====================================================
 
   const handlePhotoUpload = (event) => {
 
@@ -72,15 +167,16 @@ function AdminDashboard({ admin }) {
 
     if (file) {
 
-      const imageUrl = URL.createObjectURL(file);
+      const imageUrl =
+        URL.createObjectURL(file);
 
       setAdminPhoto(imageUrl);
     }
   };
 
-  // =========================
+  // =====================================================
   // EMPLOYEE FORM CHANGE
-  // =========================
+  // =====================================================
 
   const handleEmployeeChange = (event) => {
 
@@ -92,15 +188,14 @@ function AdminDashboard({ admin }) {
     }));
   };
 
-  // =========================
+  // =====================================================
   // REGISTER EMPLOYEE
-  // =========================
+  // =====================================================
 
   const handleEmployeeSubmit = (event) => {
 
     event.preventDefault();
 
-    // Check required fields
     if (
       !employeeForm.employeeId ||
       !employeeForm.firstName ||
@@ -112,22 +207,30 @@ function AdminDashboard({ admin }) {
       !employeeForm.hireDate
     ) {
 
-      alert("Please fill in all required fields.");
+      alert(
+        "Please fill in all required fields."
+      );
 
       return;
     }
 
-    // Create new employee
     const newEmployee = {
       id: Date.now(),
       ...employeeForm,
     };
 
-    // Add employee to list
-    setEmployees((previous) => [
-      ...previous,
+    const updatedEmployees = [
+      ...employees,
       newEmployee,
-    ]);
+    ];
+
+    setEmployees(updatedEmployees);
+
+    // Save employees
+    localStorage.setItem(
+      "employees",
+      JSON.stringify(updatedEmployees)
+    );
 
     // Clear form
     setEmployeeForm({
@@ -141,43 +244,48 @@ function AdminDashboard({ admin }) {
       hireDate: "",
     });
 
-    alert("Employee registered successfully!");
+    alert(
+      "Employee registered successfully!"
+    );
   };
 
-  // =========================
+  // =====================================================
   // SEARCH EMPLOYEES
-  // =========================
+  // =====================================================
 
-  const filteredEmployees = employees.filter((employee) => {
+  const filteredEmployees =
+    employees.filter((employee) => {
 
-    const search = searchTerm.toLowerCase();
+      const search =
+        searchTerm.toLowerCase();
 
-    return (
-      employee.employeeId
-        .toLowerCase()
-        .includes(search) ||
+      return (
+        employee.employeeId
+          ?.toLowerCase()
+          .includes(search) ||
 
-      employee.firstName
-        .toLowerCase()
-        .includes(search) ||
+        employee.firstName
+          ?.toLowerCase()
+          .includes(search) ||
 
-      employee.lastName
-        .toLowerCase()
-        .includes(search) ||
+        employee.lastName
+          ?.toLowerCase()
+          .includes(search) ||
 
-      employee.department
-        .toLowerCase()
-        .includes(search) ||
+        employee.department
+          ?.toLowerCase()
+          .includes(search) ||
 
-      employee.position
-        .toLowerCase()
-        .includes(search)
-    );
-  });
+        employee.position
+          ?.toLowerCase()
+          .includes(search)
+      );
 
-  // =========================
+    });
+
+  // =====================================================
   // INPUT STYLE
-  // =========================
+  // =====================================================
 
   const inputStyle = {
     width: "100%",
@@ -189,9 +297,276 @@ function AdminDashboard({ admin }) {
     fontSize: "14px",
   };
 
-  // =========================
+  // =====================================================
+  // GET EMPLOYEE INFORMATION
+  // =====================================================
+
+  const getEmployeeInformation = (
+    attendance
+  ) => {
+
+    const employeeId =
+      attendance.employeeId ||
+      attendance.id ||
+      attendance.employeeID;
+
+    const employee =
+      employees.find(
+        (item) =>
+          String(item.employeeId) ===
+            String(employeeId) ||
+          String(item.id) ===
+            String(employeeId)
+      );
+
+    return employee;
+  };
+
+  // =====================================================
+  // FORMAT TIME
+  // =====================================================
+
+  const formatTime = (time) => {
+
+    if (!time) {
+      return "-";
+    }
+
+    return time;
+  };
+
+  // =====================================================
+  // GET ATTENDANCE LOCATION
+  // =====================================================
+
+  const getAttendanceLocation = (
+    attendance
+  ) => {
+
+    const latitude =
+      attendance.signInLatitude ??
+      attendance.latitude;
+
+    const longitude =
+      attendance.signInLongitude ??
+      attendance.longitude;
+
+    if (
+      latitude === undefined ||
+      latitude === null ||
+      longitude === undefined ||
+      longitude === null
+    ) {
+
+      return null;
+    }
+
+    return {
+      latitude,
+      longitude,
+      signInLatitude:
+        attendance.signInLatitude ??
+        attendance.latitude,
+      signInLongitude:
+        attendance.signInLongitude ??
+        attendance.longitude,
+      signOutLatitude:
+        attendance.signOutLatitude,
+      signOutLongitude:
+        attendance.signOutLongitude,
+      distance:
+        attendance.signInDistanceFromSchool,
+      status:
+        attendance.signInLocationStatus ||
+        "UNKNOWN",
+      signOutDistance:
+        attendance.signOutDistanceFromSchool,
+      signOutStatus:
+        attendance.signOutLocationStatus,
+    };
+  };
+
+  // =====================================================
+  // REVERSE GEOCODING
+  // GET PLACE NAME FROM LATITUDE + LONGITUDE
+  // =====================================================
+
+  const getPlaceName = async (
+    latitude,
+    longitude
+  ) => {
+
+    setLocationLoading(true);
+    setPlaceName("");
+
+    try {
+
+      const response =
+        await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          "Unable to get location name."
+        );
+      }
+
+      const data =
+        await response.json();
+
+      if (data.display_name) {
+
+        setPlaceName(
+          data.display_name
+        );
+
+      } else {
+
+        setPlaceName(
+          "Place name not available"
+        );
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        "Reverse geocoding error:",
+        error
+      );
+
+      setPlaceName(
+        "Unable to determine place name"
+      );
+
+    } finally {
+
+      setLocationLoading(false);
+
+    }
+  };
+
+  // =====================================================
+  // OPEN LOCATION
+  // =====================================================
+
+  const handleViewLocation = (
+    attendance
+  ) => {
+
+    const location =
+      getAttendanceLocation(
+        attendance
+      );
+
+    if (!location) {
+
+      alert(
+        "Location information is not available for this attendance record."
+      );
+
+      return;
+    }
+
+    const employee =
+      getEmployeeInformation(
+        attendance
+      );
+
+    const locationData = {
+      ...location,
+      attendance,
+      employee,
+    };
+
+    setSelectedLocation(
+      locationData
+    );
+
+    getPlaceName(
+      location.latitude,
+      location.longitude
+    );
+  };
+
+  // =====================================================
+  // CLOSE LOCATION MODAL
+  // =====================================================
+
+  const closeLocationModal = () => {
+
+    setSelectedLocation(null);
+    setPlaceName("");
+  };
+
+  // =====================================================
+  // CREATE OPENSTREETMAP URL
+  // =====================================================
+
+  const getMapUrl = (
+    latitude,
+    longitude
+  ) => {
+
+    const zoom = 18;
+
+    const delta = 0.002;
+
+    const left =
+      Number(longitude) - delta;
+
+    const right =
+      Number(longitude) + delta;
+
+    const top =
+      Number(latitude) + delta;
+
+    const bottom =
+      Number(latitude) - delta;
+
+    return (
+      `https://www.openstreetmap.org/export/embed.html?` +
+      `bbox=${left},${bottom},${right},${top}` +
+      `&layer=mapnik` +
+      `&marker=${latitude},${longitude}`
+    );
+  };
+
+  // =====================================================
+  // ATTENDANCE SUMMARY
+  // =====================================================
+
+  const today = new Date()
+    .toISOString()
+    .split("T")[0];
+
+  const todayAttendance =
+    attendanceRecords.filter(
+      (attendance) =>
+        attendance.date === today
+    );
+
+  const presentToday =
+    todayAttendance.length;
+
+  const lateToday =
+    todayAttendance.filter(
+      (attendance) =>
+        attendance.status === "Late" ||
+        attendance.attendanceStatus === "Late"
+    ).length;
+
+  const absentToday =
+    Math.max(
+      employees.length -
+        presentToday,
+      0
+    );
+
+  // =====================================================
   // LOGOUT
-  // =========================
+  // =====================================================
 
   const handleLogout = () => {
 
@@ -200,9 +575,9 @@ function AdminDashboard({ admin }) {
     window.location.href = "/";
   };
 
-  // =========================
+  // =====================================================
   // RETURN
-  // =========================
+  // =====================================================
 
   return (
 
@@ -236,9 +611,7 @@ function AdminDashboard({ admin }) {
 
         </div>
 
-
         <div className="sidebar-line"></div>
-
 
         {/* MENU */}
 
@@ -272,7 +645,6 @@ function AdminDashboard({ admin }) {
 
         </nav>
 
-
         {/* LOGOUT */}
 
         <button
@@ -290,13 +662,11 @@ function AdminDashboard({ admin }) {
 
       </aside>
 
-
       {/* =====================================================
           MAIN CONTENT
       ===================================================== */}
 
       <main className="admin-main">
-
 
         {/* =====================================================
             TOP BAR
@@ -316,7 +686,6 @@ function AdminDashboard({ admin }) {
             </p>
 
           </div>
-
 
           {/* SMALL ADMIN PROFILE */}
 
@@ -358,7 +727,6 @@ function AdminDashboard({ admin }) {
 
         </div>
 
-
         {/* =====================================================
             HOME
         ===================================================== */}
@@ -387,7 +755,6 @@ function AdminDashboard({ admin }) {
 
             </div>
 
-
             {/* PROFILE */}
 
             <div className="profile-card">
@@ -408,9 +775,7 @@ function AdminDashboard({ admin }) {
 
               </div>
 
-
               <div className="profile-content">
-
 
                 {/* PHOTO */}
 
@@ -440,7 +805,6 @@ function AdminDashboard({ admin }) {
 
                   </div>
 
-
                   <h3>
                     {adminName}
                   </h3>
@@ -449,7 +813,6 @@ function AdminDashboard({ admin }) {
                     {adminPosition}
                   </p>
 
-
                   <label
                     htmlFor="admin-photo-upload"
                     className="upload-photo-button"
@@ -457,17 +820,17 @@ function AdminDashboard({ admin }) {
                     📷 Upload Photo
                   </label>
 
-
                   <input
                     id="admin-photo-upload"
                     type="file"
                     accept="image/*"
-                    onChange={handlePhotoUpload}
+                    onChange={
+                      handlePhotoUpload
+                    }
                     hidden
                   />
 
                 </div>
-
 
                 {/* INFORMATION */}
 
@@ -485,7 +848,6 @@ function AdminDashboard({ admin }) {
 
                   </div>
 
-
                   <div className="information-item">
 
                     <span className="information-label">
@@ -498,7 +860,6 @@ function AdminDashboard({ admin }) {
 
                   </div>
 
-
                   <div className="information-item">
 
                     <span className="information-label">
@@ -510,7 +871,6 @@ function AdminDashboard({ admin }) {
                     </strong>
 
                   </div>
-
 
                   <div className="information-item">
 
@@ -534,7 +894,6 @@ function AdminDashboard({ admin }) {
 
         )}
 
-
         {/* =====================================================
             VIEW EMPLOYEES ATTENDANCE
         ===================================================== */}
@@ -543,8 +902,12 @@ function AdminDashboard({ admin }) {
 
           <div
             className="view-attendance-container"
-            style={{ padding: "20px" }}
+            style={{
+              padding: "20px",
+            }}
           >
+
+            {/* PAGE HEADER */}
 
             <div
               style={{
@@ -567,8 +930,9 @@ function AdminDashboard({ admin }) {
 
             </div>
 
-
-            {/* SUMMARY CARDS */}
+            {/* =================================================
+                SUMMARY CARDS
+            ================================================= */}
 
             <div
               style={{
@@ -579,6 +943,8 @@ function AdminDashboard({ admin }) {
                 marginBottom: "25px",
               }}
             >
+
+              {/* TOTAL EMPLOYEES */}
 
               <div
                 style={{
@@ -604,6 +970,7 @@ function AdminDashboard({ admin }) {
 
               </div>
 
+              {/* PRESENT */}
 
               <div
                 style={{
@@ -624,11 +991,12 @@ function AdminDashboard({ admin }) {
                     fontWeight: "bold",
                   }}
                 >
-                  0
+                  {presentToday}
                 </span>
 
               </div>
 
+              {/* LATE */}
 
               <div
                 style={{
@@ -649,11 +1017,12 @@ function AdminDashboard({ admin }) {
                     fontWeight: "bold",
                   }}
                 >
-                  0
+                  {lateToday}
                 </span>
 
               </div>
 
+              {/* ABSENT */}
 
               <div
                 style={{
@@ -674,15 +1043,16 @@ function AdminDashboard({ admin }) {
                     fontWeight: "bold",
                   }}
                 >
-                  0
+                  {absentToday}
                 </span>
 
               </div>
 
             </div>
 
-
-            {/* WEEKLY REPORT */}
+            {/* =================================================
+                WEEKLY REPORT
+            ================================================= */}
 
             <div
               style={{
@@ -703,9 +1073,12 @@ function AdminDashboard({ admin }) {
                   height: "180px",
                   display: "flex",
                   alignItems: "flex-end",
-                  justifyContent: "space-around",
-                  borderBottom: "2px solid #333",
-                  borderLeft: "2px solid #333",
+                  justifyContent:
+                    "space-around",
+                  borderBottom:
+                    "2px solid #333",
+                  borderLeft:
+                    "2px solid #333",
                   marginTop: "20px",
                 }}
               >
@@ -748,14 +1121,15 @@ function AdminDashboard({ admin }) {
                   color: "#999",
                 }}
               >
-                No weekly attendance data available
-                yet.
+                Weekly chart will be connected
+                to the attendance database later.
               </p>
 
             </div>
 
-
-            {/* ATTENDANCE TABLE */}
+            {/* =================================================
+                DAILY ATTENDANCE TABLE
+            ================================================= */}
 
             <div
               style={{
@@ -767,15 +1141,92 @@ function AdminDashboard({ admin }) {
               }}
             >
 
-              <h3>
-                Daily Attendance Records
-              </h3>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent:
+                    "space-between",
+                  alignItems: "center",
+                  marginBottom: "15px",
+                  gap: "10px",
+                }}
+              >
+
+                <div>
+
+                  <h3>
+                    Daily Attendance Records
+                  </h3>
+
+                  <p
+                    style={{
+                      color: "#777",
+                      margin: "5px 0 0",
+                    }}
+                  >
+                    Attendance records including
+                    employee location.
+                  </p>
+
+                </div>
+
+                <button
+                  onClick={() => {
+
+                    const saved =
+                      localStorage.getItem(
+                        "employeeAttendance"
+                      );
+
+                    if (saved) {
+
+                      try {
+
+                        setAttendanceRecords(
+                          JSON.parse(saved)
+                        );
+
+                      } catch {
+
+                        setAttendanceRecords([]);
+                      }
+
+                    } else {
+
+                      setAttendanceRecords([]);
+
+                    }
+
+                  }}
+                  style={{
+                    padding:
+                      "10px 15px",
+                    border:
+                      "1px solid #2d7d46",
+                    background:
+                      "#fff",
+                    color:
+                      "#2d7d46",
+                    borderRadius:
+                      "7px",
+                    cursor:
+                      "pointer",
+                    fontWeight:
+                      "bold",
+                  }}
+                >
+                  🔄 Refresh
+                </button>
+
+              </div>
 
               <table
                 style={{
                   width: "100%",
-                  borderCollapse: "collapse",
+                  borderCollapse:
+                    "collapse",
                   marginTop: "15px",
+                  minWidth: "1000px",
                 }}
               >
 
@@ -783,46 +1234,348 @@ function AdminDashboard({ admin }) {
 
                   <tr
                     style={{
-                      background: "#f5f5f5",
+                      background:
+                        "#f5f5f5",
                     }}
                   >
 
-                    <th>Date</th>
-                    <th>Picture</th>
-                    <th>Name</th>
-                    <th>ID</th>
-                    <th>Position</th>
-                    <th>Sign In</th>
-                    <th>Sign Out</th>
-                    <th>Status</th>
+                    <th
+                      style={{
+                        padding: "12px",
+                      }}
+                    >
+                      Date
+                    </th>
+
+                    <th
+                      style={{
+                        padding: "12px",
+                      }}
+                    >
+                      First Name
+                    </th>
+
+                    <th
+                      style={{
+                        padding: "12px",
+                      }}
+                    >
+                      Last Name
+                    </th>
+
+                    <th
+                      style={{
+                        padding: "12px",
+                      }}
+                    >
+                      ID
+                    </th>
+
+                    <th
+                      style={{
+                        padding: "12px",
+                      }}
+                    >
+                      Position
+                    </th>
+
+                    <th
+                      style={{
+                        padding: "12px",
+                      }}
+                    >
+                      Sign In
+                    </th>
+
+                    <th
+                      style={{
+                        padding: "12px",
+                      }}
+                    >
+                      Sign Out
+                    </th>
+
+                    <th
+                      style={{
+                        padding: "12px",
+                      }}
+                    >
+                      Status
+                    </th>
+
+                    <th
+                      style={{
+                        padding: "12px",
+                      }}
+                    >
+                      Location
+                    </th>
 
                   </tr>
 
                 </thead>
 
-
                 <tbody>
 
-                  <tr>
+                  {attendanceRecords.length > 0 ? (
 
-                    <td
-                      colSpan="8"
-                      style={{
-                        textAlign: "center",
-                        padding: "35px",
-                        color: "#888",
-                      }}
-                    >
+                    attendanceRecords.map(
+                      (attendance, index) => {
 
-                      📂
+                        const employee =
+                          getEmployeeInformation(
+                            attendance
+                          );
 
-                      <br />
+                        const location =
+                          getAttendanceLocation(
+                            attendance
+                          );
 
-                      No attendance records found.
+                        return (
 
-                    </td>
+                          <tr
+                            key={
+                              attendance.id ||
+                              attendance.attendanceId ||
+                              index
+                            }
+                            style={{
+                              borderBottom:
+                                "1px solid #eee",
+                            }}
+                          >
 
-                  </tr>
+                            {/* DATE */}
+
+                            <td
+                              style={{
+                                padding: "12px",
+                              }}
+                            >
+                              {attendance.date ||
+                                "-"}
+                            </td>
+
+                            {/* FIRST NAME */}
+
+                            <td
+                              style={{
+                                padding: "12px",
+                              }}
+                            >
+                              {employee?.firstName ||
+                                attendance.firstName ||
+                                "-"}
+                            </td>
+
+                            {/* LAST NAME */}
+
+                            <td
+                              style={{
+                                padding: "12px",
+                              }}
+                            >
+                              {employee?.lastName ||
+                                attendance.lastName ||
+                                "-"}
+                            </td>
+
+                            {/* ID */}
+
+                            <td
+                              style={{
+                                padding: "12px",
+                              }}
+                            >
+                              {employee?.employeeId ||
+                                attendance.employeeId ||
+                                "-"}
+                            </td>
+
+                            {/* POSITION */}
+
+                            <td
+                              style={{
+                                padding: "12px",
+                              }}
+                            >
+                              {employee?.position ||
+                                attendance.position ||
+                                "-"}
+                            </td>
+
+                            {/* SIGN IN */}
+
+                            <td
+                              style={{
+                                padding: "12px",
+                              }}
+                            >
+                              {formatTime(
+                                attendance.signIn
+                              )}
+                            </td>
+
+                            {/* SIGN OUT */}
+
+                            <td
+                              style={{
+                                padding: "12px",
+                              }}
+                            >
+                              {formatTime(
+                                attendance.signOut
+                              )}
+                            </td>
+
+                            {/* STATUS */}
+
+                            <td
+                              style={{
+                                padding: "12px",
+                              }}
+                            >
+
+                              <span
+                                style={{
+                                  display:
+                                    "inline-block",
+                                  padding:
+                                    "6px 10px",
+                                  borderRadius:
+                                    "20px",
+                                  background:
+                                    location?.status ===
+                                    "INSIDE_SCHOOL"
+                                      ? "#e8f5e9"
+                                      : "#ffebee",
+                                  color:
+                                    location?.status ===
+                                    "INSIDE_SCHOOL"
+                                      ? "#2e7d32"
+                                      : "#c62828",
+                                  fontSize:
+                                    "12px",
+                                  fontWeight:
+                                    "bold",
+                                }}
+                              >
+
+                                {location?.status ===
+                                "INSIDE_SCHOOL"
+                                  ? "Inside School"
+                                  : location?.status ===
+                                    "OUTSIDE_SCHOOL"
+                                  ? "Outside School"
+                                  : "Unknown"}
+
+                              </span>
+
+                            </td>
+
+                            {/* LOCATION */}
+
+                            <td
+                              style={{
+                                padding: "12px",
+                              }}
+                            >
+
+                              {location ? (
+
+                                <button
+                                  onClick={() =>
+                                    handleViewLocation(
+                                      attendance
+                                    )
+                                  }
+                                  style={{
+                                    background:
+                                      "#2d7d46",
+                                    color:
+                                      "#fff",
+                                    border:
+                                      "none",
+                                    padding:
+                                      "8px 12px",
+                                    borderRadius:
+                                      "6px",
+                                    cursor:
+                                      "pointer",
+                                    fontWeight:
+                                      "bold",
+                                  }}
+                                >
+                                  📍 View Location
+                                </button>
+
+                              ) : (
+
+                                <span
+                                  style={{
+                                    color:
+                                      "#999",
+                                  }}
+                                >
+                                  No location
+                                </span>
+
+                              )}
+
+                            </td>
+
+                          </tr>
+
+                        );
+
+                      }
+                    )
+
+                  ) : (
+
+                    <tr>
+
+                      <td
+                        colSpan="9"
+                        style={{
+                          textAlign:
+                            "center",
+                          padding:
+                            "35px",
+                          color:
+                            "#888",
+                        }}
+                      >
+
+                        <div
+                          style={{
+                            fontSize:
+                              "35px",
+                            marginBottom:
+                              "10px",
+                          }}
+                        >
+                          📂
+                        </div>
+
+                        No attendance records
+                        found.
+
+                        <br />
+
+                        <small>
+                          Attendance records will
+                          appear here after an
+                          employee completes
+                          attendance.
+                        </small>
+
+                      </td>
+
+                    </tr>
+
+                  )}
 
                 </tbody>
 
@@ -833,7 +1586,6 @@ function AdminDashboard({ admin }) {
           </div>
 
         )}
-
 
         {/* =====================================================
             MANAGE EMPLOYEE
@@ -877,10 +1629,7 @@ function AdminDashboard({ admin }) {
 
             </div>
 
-
-            {/* =================================================
-                REGISTER EMPLOYEE FORM
-            ================================================= */}
+            {/* REGISTER EMPLOYEE FORM */}
 
             <div
               style={{
@@ -894,9 +1643,12 @@ function AdminDashboard({ admin }) {
 
               <h2
                 style={{
-                  textAlign: "center",
-                  marginBottom: "8px",
-                  color: "#1b4332",
+                  textAlign:
+                    "center",
+                  marginBottom:
+                    "8px",
+                  color:
+                    "#1b4332",
                 }}
               >
                 Register Employee
@@ -904,29 +1656,33 @@ function AdminDashboard({ admin }) {
 
               <p
                 style={{
-                  textAlign: "center",
-                  color: "#777",
-                  marginBottom: "30px",
+                  textAlign:
+                    "center",
+                  color:
+                    "#777",
+                  marginBottom:
+                    "30px",
                 }}
               >
                 Enter employee information below
               </p>
 
-
               <form
-                onSubmit={handleEmployeeSubmit}
+                onSubmit={
+                  handleEmployeeSubmit
+                }
               >
 
                 <div
                   style={{
-                    display: "grid",
+                    display:
+                      "grid",
                     gridTemplateColumns:
                       "repeat(2, 1fr)",
-                    gap: "20px",
+                    gap:
+                      "20px",
                   }}
                 >
-
-                  {/* EMPLOYEE ID */}
 
                   <div>
 
@@ -944,13 +1700,12 @@ function AdminDashboard({ admin }) {
                         handleEmployeeChange
                       }
                       placeholder="e.g. AGS001"
-                      style={inputStyle}
+                      style={
+                        inputStyle
+                      }
                     />
 
                   </div>
-
-
-                  {/* FIRST NAME */}
 
                   <div>
 
@@ -968,13 +1723,12 @@ function AdminDashboard({ admin }) {
                         handleEmployeeChange
                       }
                       placeholder="Enter first name"
-                      style={inputStyle}
+                      style={
+                        inputStyle
+                      }
                     />
 
                   </div>
-
-
-                  {/* LAST NAME */}
 
                   <div>
 
@@ -992,13 +1746,12 @@ function AdminDashboard({ admin }) {
                         handleEmployeeChange
                       }
                       placeholder="Enter last name"
-                      style={inputStyle}
+                      style={
+                        inputStyle
+                      }
                     />
 
                   </div>
-
-
-                  {/* EMAIL */}
 
                   <div>
 
@@ -1016,13 +1769,12 @@ function AdminDashboard({ admin }) {
                         handleEmployeeChange
                       }
                       placeholder="employee@email.com"
-                      style={inputStyle}
+                      style={
+                        inputStyle
+                      }
                     />
 
                   </div>
-
-
-                  {/* PHONE */}
 
                   <div>
 
@@ -1040,13 +1792,12 @@ function AdminDashboard({ admin }) {
                         handleEmployeeChange
                       }
                       placeholder="+255..."
-                      style={inputStyle}
+                      style={
+                        inputStyle
+                      }
                     />
 
                   </div>
-
-
-                  {/* DEPARTMENT */}
 
                   <div>
 
@@ -1062,7 +1813,9 @@ function AdminDashboard({ admin }) {
                       onChange={
                         handleEmployeeChange
                       }
-                      style={inputStyle}
+                      style={
+                        inputStyle
+                      }
                     >
 
                       <option value="">
@@ -1093,9 +1846,6 @@ function AdminDashboard({ admin }) {
 
                   </div>
 
-
-                  {/* POSITION */}
-
                   <div>
 
                     <label>
@@ -1112,13 +1862,12 @@ function AdminDashboard({ admin }) {
                         handleEmployeeChange
                       }
                       placeholder="e.g. Teacher"
-                      style={inputStyle}
+                      style={
+                        inputStyle
+                      }
                     />
 
                   </div>
-
-
-                  {/* HIRE DATE */}
 
                   <div>
 
@@ -1135,97 +1884,113 @@ function AdminDashboard({ admin }) {
                       onChange={
                         handleEmployeeChange
                       }
-                      style={inputStyle}
+                      style={
+                        inputStyle
+                      }
                     />
 
                   </div>
 
                 </div>
 
-
-                {/* SUBMIT BUTTON */}
-
                 <button
                   type="submit"
                   style={{
-                    width: "100%",
-                    marginTop: "30px",
-                    background: "#2d7d46",
-                    color: "#fff",
-                    border: "none",
-                    padding: "15px",
-                    borderRadius: "8px",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                    fontSize: "15px",
+                    width:
+                      "100%",
+                    marginTop:
+                      "30px",
+                    background:
+                      "#2d7d46",
+                    color:
+                      "#fff",
+                    border:
+                      "none",
+                    padding:
+                      "15px",
+                    borderRadius:
+                      "8px",
+                    fontWeight:
+                      "bold",
+                    cursor:
+                      "pointer",
+                    fontSize:
+                      "15px",
                   }}
                 >
-
                   Register Employee
-
                 </button>
 
               </form>
 
             </div>
 
-
-            {/* =================================================
-                EMPLOYEE DIRECTORY
-            ================================================= */}
+            {/* EMPLOYEE DIRECTORY */}
 
             <div
               style={{
-                background: "#fff",
-                padding: "25px",
-                borderRadius: "12px",
-                border: "1px solid #ddd",
+                background:
+                  "#fff",
+                padding:
+                  "25px",
+                borderRadius:
+                  "12px",
+                border:
+                  "1px solid #ddd",
               }}
             >
 
               <h3
                 style={{
-                  color: "#1b4332",
-                  marginBottom: "15px",
+                  color:
+                    "#1b4332",
+                  marginBottom:
+                    "15px",
                 }}
               >
                 Employee Directory
               </h3>
 
-
-              {/* SEARCH */}
-
               <input
                 type="text"
                 placeholder="Search by Name, ID, Department or Position..."
-                value={searchTerm}
-                onChange={(event) =>
+                value={
+                  searchTerm
+                }
+                onChange={(
+                  event
+                ) =>
                   setSearchTerm(
                     event.target.value
                   )
                 }
                 style={{
-                  width: "100%",
-                  padding: "12px",
-                  marginBottom: "20px",
-                  borderRadius: "8px",
-                  border: "1px solid #ccc",
-                  boxSizing: "border-box",
+                  width:
+                    "100%",
+                  padding:
+                    "12px",
+                  marginBottom:
+                    "20px",
+                  borderRadius:
+                    "8px",
+                  border:
+                    "1px solid #ccc",
+                  boxSizing:
+                    "border-box",
                 }}
               />
 
-
-              {/* TABLE */}
-
               <div
                 style={{
-                  overflowX: "auto",
+                  overflowX:
+                    "auto",
                 }}
               >
 
                 <table
                   style={{
-                    width: "100%",
+                    width:
+                      "100%",
                     borderCollapse:
                       "collapse",
                   }}
@@ -1240,86 +2005,23 @@ function AdminDashboard({ admin }) {
                       }}
                     >
 
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                        }}
-                      >
-                        ID
-                      </th>
-
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                        }}
-                      >
-                        First Name
-                      </th>
-
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                        }}
-                      >
-                        Last Name
-                      </th>
-
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                        }}
-                      >
-                        Email
-                      </th>
-
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                        }}
-                      >
-                        Phone
-                      </th>
-
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                        }}
-                      >
-                        Department
-                      </th>
-
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                        }}
-                      >
-                        Position
-                      </th>
-
-                      <th
-                        style={{
-                          padding: "12px",
-                          textAlign: "left",
-                        }}
-                      >
-                        Hire Date
-                      </th>
+                      <th>ID</th>
+                      <th>First Name</th>
+                      <th>Last Name</th>
+                      <th>Email</th>
+                      <th>Phone</th>
+                      <th>Department</th>
+                      <th>Position</th>
+                      <th>Hire Date</th>
 
                     </tr>
 
                   </thead>
 
-
                   <tbody>
 
-                    {filteredEmployees.length > 0 ? (
+                    {filteredEmployees.length >
+                    0 ? (
 
                       filteredEmployees.map(
                         (employee) => (
@@ -1334,89 +2036,49 @@ function AdminDashboard({ admin }) {
                             }}
                           >
 
-                            <td
-                              style={{
-                                padding:
-                                  "12px",
-                              }}
-                            >
+                            <td>
                               {
                                 employee.employeeId
                               }
                             </td>
 
-                            <td
-                              style={{
-                                padding:
-                                  "12px",
-                              }}
-                            >
+                            <td>
                               {
                                 employee.firstName
                               }
                             </td>
 
-                            <td
-                              style={{
-                                padding:
-                                  "12px",
-                              }}
-                            >
+                            <td>
                               {
                                 employee.lastName
                               }
                             </td>
 
-                            <td
-                              style={{
-                                padding:
-                                  "12px",
-                              }}
-                            >
+                            <td>
                               {
                                 employee.email
                               }
                             </td>
 
-                            <td
-                              style={{
-                                padding:
-                                  "12px",
-                              }}
-                            >
+                            <td>
                               {
                                 employee.phone
                               }
                             </td>
 
-                            <td
-                              style={{
-                                padding:
-                                  "12px",
-                              }}
-                            >
+                            <td>
                               {
                                 employee.department
                               }
                             </td>
 
-                            <td
-                              style={{
-                                padding:
-                                  "12px",
-                              }}
-                            >
+                            <td>
                               {
                                 employee.position
                               }
                             </td>
 
-                            <td
-                              style={{
-                                padding:
-                                  "12px",
-                              }}
-                            >
+                            <td>
                               {
                                 employee.hireDate
                               }
@@ -1474,7 +2136,6 @@ function AdminDashboard({ admin }) {
 
         )}
 
-
         {/* =====================================================
             SETTINGS
         ===================================================== */}
@@ -1491,13 +2152,15 @@ function AdminDashboard({ admin }) {
 
             <div
               style={{
-                marginBottom: "25px",
+                marginBottom:
+                  "25px",
               }}
             >
 
               <h2
                 style={{
-                  color: "#1b4332",
+                  color:
+                    "#1b4332",
                 }}
               >
                 System & Profile Settings
@@ -1505,7 +2168,8 @@ function AdminDashboard({ admin }) {
 
               <p
                 style={{
-                  color: "#666",
+                  color:
+                    "#666",
                 }}
               >
                 Configure system rules, update
@@ -1515,16 +2179,20 @@ function AdminDashboard({ admin }) {
 
             </div>
 
-
             {/* ADMIN PROFILE */}
 
             <div
               style={{
-                background: "#fff",
-                padding: "25px",
-                borderRadius: "10px",
-                border: "1px solid #ddd",
-                marginBottom: "20px",
+                background:
+                  "#fff",
+                padding:
+                  "25px",
+                borderRadius:
+                  "10px",
+                border:
+                  "1px solid #ddd",
+                marginBottom:
+                  "20px",
               }}
             >
 
@@ -1534,7 +2202,8 @@ function AdminDashboard({ admin }) {
 
               <p
                 style={{
-                  color: "#777",
+                  color:
+                    "#777",
                 }}
               >
                 Update administrator profile
@@ -1543,10 +2212,12 @@ function AdminDashboard({ admin }) {
 
               <div
                 style={{
-                  display: "grid",
+                  display:
+                    "grid",
                   gridTemplateColumns:
                     "1fr 1fr",
-                  gap: "15px",
+                  gap:
+                    "15px",
                 }}
               >
 
@@ -1558,12 +2229,15 @@ function AdminDashboard({ admin }) {
 
                   <input
                     type="text"
-                    defaultValue={adminName}
-                    style={inputStyle}
+                    defaultValue={
+                      adminName
+                    }
+                    style={
+                      inputStyle
+                    }
                   />
 
                 </div>
-
 
                 <div>
 
@@ -1573,12 +2247,15 @@ function AdminDashboard({ admin }) {
 
                   <input
                     type="email"
-                    defaultValue={adminEmail}
-                    style={inputStyle}
+                    defaultValue={
+                      adminEmail
+                    }
+                    style={
+                      inputStyle
+                    }
                   />
 
                 </div>
-
 
                 <div>
 
@@ -1588,12 +2265,15 @@ function AdminDashboard({ admin }) {
 
                   <input
                     type="text"
-                    defaultValue={adminPhone}
-                    style={inputStyle}
+                    defaultValue={
+                      adminPhone
+                    }
+                    style={
+                      inputStyle
+                    }
                   />
 
                 </div>
-
 
                 <div>
 
@@ -1618,16 +2298,20 @@ function AdminDashboard({ admin }) {
 
             </div>
 
-
             {/* ATTENDANCE RULES */}
 
             <div
               style={{
-                background: "#fff",
-                padding: "25px",
-                borderRadius: "10px",
-                border: "1px solid #ddd",
-                marginBottom: "20px",
+                background:
+                  "#fff",
+                padding:
+                  "25px",
+                borderRadius:
+                  "10px",
+                border:
+                  "1px solid #ddd",
+                marginBottom:
+                  "20px",
               }}
             >
 
@@ -1637,7 +2321,8 @@ function AdminDashboard({ admin }) {
 
               <p
                 style={{
-                  color: "#777",
+                  color:
+                    "#777",
                 }}
               >
                 Set official arrival and departure
@@ -1646,10 +2331,12 @@ function AdminDashboard({ admin }) {
 
               <div
                 style={{
-                  display: "grid",
+                  display:
+                    "grid",
                   gridTemplateColumns:
                     "1fr 1fr",
-                  gap: "15px",
+                  gap:
+                    "15px",
                 }}
               >
 
@@ -1661,11 +2348,12 @@ function AdminDashboard({ admin }) {
 
                   <input
                     type="time"
-                    style={inputStyle}
+                    style={
+                      inputStyle
+                    }
                   />
 
                 </div>
-
 
                 <div>
 
@@ -1675,7 +2363,9 @@ function AdminDashboard({ admin }) {
 
                   <input
                     type="time"
-                    style={inputStyle}
+                    style={
+                      inputStyle
+                    }
                   />
 
                 </div>
@@ -1684,16 +2374,20 @@ function AdminDashboard({ admin }) {
 
             </div>
 
-
             {/* SECURITY */}
 
             <div
               style={{
-                background: "#fff",
-                padding: "25px",
-                borderRadius: "10px",
-                border: "1px solid #ddd",
-                marginBottom: "20px",
+                background:
+                  "#fff",
+                padding:
+                  "25px",
+                borderRadius:
+                  "10px",
+                border:
+                  "1px solid #ddd",
+                marginBottom:
+                  "20px",
               }}
             >
 
@@ -1703,7 +2397,8 @@ function AdminDashboard({ admin }) {
 
               <p
                 style={{
-                  color: "#777",
+                  color:
+                    "#777",
                 }}
               >
                 Change administrator password.
@@ -1711,49 +2406,60 @@ function AdminDashboard({ admin }) {
 
               <div
                 style={{
-                  display: "grid",
+                  display:
+                    "grid",
                   gridTemplateColumns:
                     "1fr 1fr 1fr",
-                  gap: "15px",
+                  gap:
+                    "15px",
                 }}
               >
 
                 <input
                   type="password"
                   placeholder="Current Password"
-                  style={inputStyle}
+                  style={
+                    inputStyle
+                  }
                 />
 
                 <input
                   type="password"
                   placeholder="New Password"
-                  style={inputStyle}
+                  style={
+                    inputStyle
+                  }
                 />
 
                 <input
                   type="password"
                   placeholder="Confirm Password"
-                  style={inputStyle}
+                  style={
+                    inputStyle
+                  }
                 />
 
               </div>
 
             </div>
 
-
             <div
               style={{
-                textAlign: "right",
+                textAlign:
+                  "right",
               }}
             >
 
               <button
                 style={{
-                  background: "#1b4332",
-                  color: "#fff",
+                  background:
+                    "#1b4332",
+                  color:
+                    "#fff",
                   padding:
                     "12px 25px",
-                  border: "none",
+                  border:
+                    "none",
                   borderRadius:
                     "7px",
                   fontWeight:
@@ -1776,7 +2482,6 @@ function AdminDashboard({ admin }) {
 
         )}
 
-
         {/* =====================================================
             HELP CENTER
         ===================================================== */}
@@ -1789,7 +2494,542 @@ function AdminDashboard({ admin }) {
 
       </main>
 
+      {/* =====================================================
+          LOCATION MODAL
+      ===================================================== */}
+
+      {selectedLocation && (
+
+        <div
+          style={{
+            position:
+              "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background:
+              "rgba(0, 0, 0, 0.65)",
+            display:
+              "flex",
+            alignItems:
+              "center",
+            justifyContent:
+              "center",
+            zIndex: 9999,
+            padding:
+              "20px",
+          }}
+        >
+
+          <div
+            style={{
+              background:
+                "#fff",
+              width:
+                "min(900px, 100%)",
+              maxHeight:
+                "90vh",
+              overflowY:
+                "auto",
+              borderRadius:
+                "15px",
+              padding:
+                "25px",
+              position:
+                "relative",
+            }}
+          >
+
+            {/* CLOSE BUTTON */}
+
+            <button
+              onClick={
+                closeLocationModal
+              }
+              style={{
+                position:
+                  "absolute",
+                right:
+                  "15px",
+                top:
+                  "15px",
+                width:
+                  "35px",
+                height:
+                  "35px",
+                border:
+                  "none",
+                borderRadius:
+                  "50%",
+                background:
+                  "#f1f1f1",
+                cursor:
+                  "pointer",
+                fontSize:
+                  "18px",
+              }}
+            >
+              ✕
+            </button>
+
+            {/* TITLE */}
+
+            <h2
+              style={{
+                color:
+                  "#1b4332",
+                marginBottom:
+                  "5px",
+              }}
+            >
+              📍 Employee Attendance Location
+            </h2>
+
+            <p
+              style={{
+                color:
+                  "#777",
+                marginBottom:
+                  "20px",
+              }}
+            >
+              Location recorded when the employee
+              marked attendance.
+            </p>
+
+            {/* EMPLOYEE INFORMATION */}
+
+            <div
+              style={{
+                display:
+                  "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(180px, 1fr))",
+                gap:
+                  "12px",
+                marginBottom:
+                  "20px",
+              }}
+            >
+
+              <div
+                style={{
+                  background:
+                    "#f7f7f7",
+                  padding:
+                    "12px",
+                  borderRadius:
+                    "8px",
+                }}
+              >
+
+                <small>
+                  Employee
+                </small>
+
+                <strong
+                  style={{
+                    display:
+                      "block",
+                    marginTop:
+                      "5px",
+                  }}
+                >
+                  {selectedLocation.employee?.firstName ||
+                    selectedLocation.attendance?.firstName ||
+                    "-"}{" "}
+                  {selectedLocation.employee?.lastName ||
+                    selectedLocation.attendance?.lastName ||
+                    ""}
+                </strong>
+
+              </div>
+
+              <div
+                style={{
+                  background:
+                    "#f7f7f7",
+                  padding:
+                    "12px",
+                  borderRadius:
+                    "8px",
+                }}
+              >
+
+                <small>
+                  Employee ID
+                </small>
+
+                <strong
+                  style={{
+                    display:
+                      "block",
+                    marginTop:
+                      "5px",
+                  }}
+                >
+                  {selectedLocation.employee?.employeeId ||
+                    selectedLocation.attendance?.employeeId ||
+                    "-"}
+                </strong>
+
+              </div>
+
+              <div
+                style={{
+                  background:
+                    "#f7f7f7",
+                  padding:
+                    "12px",
+                  borderRadius:
+                    "8px",
+                }}
+              >
+
+                <small>
+                  Date
+                </small>
+
+                <strong
+                  style={{
+                    display:
+                      "block",
+                    marginTop:
+                      "5px",
+                  }}
+                >
+                  {selectedLocation.attendance?.date ||
+                    "-"}
+                </strong>
+
+              </div>
+
+            </div>
+
+            {/* LOCATION INFORMATION */}
+
+            <div
+              style={{
+                background:
+                  "#eef7f0",
+                padding:
+                  "20px",
+                borderRadius:
+                  "10px",
+                marginBottom:
+                  "20px",
+              }}
+            >
+
+              <h3>
+                📡 GPS Information
+              </h3>
+
+              <div
+                style={{
+                  display:
+                    "grid",
+                  gridTemplateColumns:
+                    "1fr 1fr",
+                  gap:
+                    "15px",
+                }}
+              >
+
+                <div>
+
+                  <span
+                    style={{
+                      color:
+                        "#666",
+                      fontSize:
+                        "13px",
+                    }}
+                  >
+                    Latitude
+                  </span>
+
+                  <strong
+                    style={{
+                      display:
+                        "block",
+                      marginTop:
+                        "5px",
+                    }}
+                  >
+                    {
+                      selectedLocation.latitude
+                    }
+                  </strong>
+
+                </div>
+
+                <div>
+
+                  <span
+                    style={{
+                      color:
+                        "#666",
+                      fontSize:
+                        "13px",
+                    }}
+                  >
+                    Longitude
+                  </span>
+
+                  <strong
+                    style={{
+                      display:
+                        "block",
+                      marginTop:
+                        "5px",
+                    }}
+                  >
+                    {
+                      selectedLocation.longitude
+                    }
+                  </strong>
+
+                </div>
+
+                <div>
+
+                  <span
+                    style={{
+                      color:
+                        "#666",
+                      fontSize:
+                        "13px",
+                    }}
+                  >
+                    Distance From School
+                  </span>
+
+                  <strong
+                    style={{
+                      display:
+                        "block",
+                      marginTop:
+                        "5px",
+                    }}
+                  >
+                    {selectedLocation.distance !==
+                    undefined &&
+                    selectedLocation.distance !==
+                    null
+                      ? `${Number(
+                          selectedLocation.distance
+                        ).toFixed(2)} meters`
+                      : "Not available"}
+                  </strong>
+
+                </div>
+
+                <div>
+
+                  <span
+                    style={{
+                      color:
+                        "#666",
+                      fontSize:
+                        "13px",
+                    }}
+                  >
+                    Location Status
+                  </span>
+
+                  <strong
+                    style={{
+                      display:
+                        "block",
+                      marginTop:
+                        "5px",
+                      color:
+                        selectedLocation.status ===
+                        "INSIDE_SCHOOL"
+                          ? "#2e7d32"
+                          : "#c62828",
+                    }}
+                  >
+                    {selectedLocation.status ===
+                    "INSIDE_SCHOOL"
+                      ? "✓ INSIDE SCHOOL"
+                      : selectedLocation.status ===
+                        "OUTSIDE_SCHOOL"
+                      ? "✕ OUTSIDE SCHOOL"
+                      : "UNKNOWN"}
+                  </strong>
+
+                </div>
+
+              </div>
+
+            </div>
+
+            {/* PLACE NAME */}
+
+            <div
+              style={{
+                background:
+                  "#f8f9fa",
+                padding:
+                  "18px",
+                borderRadius:
+                  "10px",
+                marginBottom:
+                  "20px",
+              }}
+            >
+
+              <h3>
+                📍 Place Name
+              </h3>
+
+              {locationLoading ? (
+
+                <p
+                  style={{
+                    color:
+                      "#777",
+                  }}
+                >
+                  🔄 Finding place name...
+                </p>
+
+              ) : (
+
+                <p
+                  style={{
+                    margin:
+                      "5px 0 0",
+                    lineHeight:
+                      "1.6",
+                  }}
+                >
+                  {placeName ||
+                    "Place name not available"}
+                </p>
+
+              )}
+
+            </div>
+
+            {/* MAP */}
+
+            <div>
+
+              <h3>
+                🗺️ Attendance Map
+              </h3>
+
+              <div
+                style={{
+                  width:
+                    "100%",
+                  height:
+                    "400px",
+                  borderRadius:
+                    "10px",
+                  overflow:
+                    "hidden",
+                  border:
+                    "1px solid #ddd",
+                  marginTop:
+                    "10px",
+                }}
+              >
+
+                <iframe
+                  title="Employee Attendance Location"
+                  src={getMapUrl(
+                    selectedLocation.latitude,
+                    selectedLocation.longitude
+                  )}
+                  width="100%"
+                  height="100%"
+                  style={{
+                    border:
+                      "none",
+                  }}
+                  loading="lazy"
+                ></iframe>
+
+              </div>
+
+            </div>
+
+            {/* OPEN MAP BUTTON */}
+
+            <div
+              style={{
+                marginTop:
+                  "15px",
+                display:
+                  "flex",
+                gap:
+                  "10px",
+                flexWrap:
+                  "wrap",
+              }}
+            >
+
+              <a
+                href={`https://www.openstreetmap.org/?mlat=${selectedLocation.latitude}&mlon=${selectedLocation.longitude}#map=18/${selectedLocation.latitude}/${selectedLocation.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display:
+                    "inline-block",
+                  background:
+                    "#2d7d46",
+                  color:
+                    "#fff",
+                  textDecoration:
+                    "none",
+                  padding:
+                    "10px 15px",
+                  borderRadius:
+                    "7px",
+                  fontWeight:
+                    "bold",
+                }}
+              >
+                🗺️ Open Full Map
+              </a>
+
+              <button
+                onClick={
+                  closeLocationModal
+                }
+                style={{
+                  background:
+                    "#eee",
+                  color:
+                    "#333",
+                  border:
+                    "none",
+                  padding:
+                    "10px 15px",
+                  borderRadius:
+                    "7px",
+                  cursor:
+                    "pointer",
+                }}
+              >
+                Close
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      )}
+
     </div>
+
   );
 }
 
