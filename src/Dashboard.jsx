@@ -197,8 +197,8 @@ function MarkAttendance({ employee }) {
       return false;
     }
 
-    const schoolLatitude = -6.7924;
-    const schoolLongitude = 39.2083;
+    const schoolLatitude = -6.19927;
+    const schoolLongitude = 39.307828;
 
     const latitudeDifference =
       location.latitude - schoolLatitude;
@@ -310,13 +310,35 @@ function MarkAttendance({ employee }) {
         (record) =>
           record.date === today
       );
+      function getTanzaniaDateTime() {
+  const now = new Date();
+
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TANZANIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+
+  const values = {};
+
+  parts.forEach(({ type, value }) => {
+    values[type] = value;
+  });
+
+  return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}:${values.second}`;
+}
 
       /* -----------------------------------------------
          CHECK IN
       ------------------------------------------------ */
 
       if (!existingRecord) {
-        const checkInTime = new Date().toISOString();
+        const checkInTime = getTanzaniaDateTime();
 
         const attendanceData = {
           employeeid: Number(employee.employeeId),
@@ -341,8 +363,7 @@ function MarkAttendance({ employee }) {
       ------------------------------------------------ */
 
       if (!existingRecord.checkOut) {
-        const checkOutTime =
-          new Date().toISOString();
+        const checkOutTime = getTanzaniaDateTime();
 
         const attendanceData = {
           employeeid: Number(employee.employeeId),

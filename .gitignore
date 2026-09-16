@@ -1,4 +1,28 @@
+# React / Vite
+node_modules/
+dist/
+.vite/
+
+# Spring Boot / Maven
+target/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+
 # Logs
+*.log
+
+# Java compiled files
+*.class
+
+# Spring local configuration
+application-local.properties# Logs
 logs
 *.log
 npm-debug.log*
