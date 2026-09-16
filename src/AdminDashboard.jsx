@@ -2,8 +2,13 @@ import React, { useEffect, useState } from "react";
 import "./AdminDashboard.css";
 import AdminHelpCenter from "./AdminHelpCenter";
 
-function AdminDashboard({ admin }) {
+import {
+  getEmployees,
+  createEmployee,
+  getAttendance,
+} from "./services/api";
 
+function AdminDashboard({ admin }) {
   // =====================================================
   // GENERAL STATES
   // =====================================================
@@ -16,7 +21,6 @@ function AdminDashboard({ admin }) {
   // =====================================================
 
   const [employeeForm, setEmployeeForm] = useState({
-    employeeId: "",
     firstName: "",
     lastName: "",
     email: "",
@@ -35,8 +39,11 @@ function AdminDashboard({ admin }) {
 
   const [attendanceRecords, setAttendanceRecords] = useState([]);
 
-  const [selectedLocation, setSelectedLocation] = useState(null);
+  // =====================================================
+  // LOCATION STATES
+  // =====================================================
 
+  const [selectedLocation, setSelectedLocation] = useState(null);
   const [placeName, setPlaceName] = useState("");
   const [locationLoading, setLocationLoading] = useState(false);
 
@@ -74,87 +81,191 @@ function AdminDashboard({ admin }) {
     "Administrator";
 
   // =====================================================
-  // LOAD DATA FROM LOCAL STORAGE
+  // FORMAT EMPLOYEE DATA
+  // ============
+     const formatEmployees = (data) => {
+  if (!Array.isArray(data)) {
+    return [];
+  }
+
+  return data.map((employee) => ({
+    id: employee.employeeId,
+    employeeId: employee.employeeId,
+
+    employeeNumber:
+      employee.employeeNumber || "",
+
+    firstName:
+      employee.firstName || "",
+
+    lastName:
+      employee.lastName || "",
+
+    email:
+      employee.email || "",
+
+    phone:
+      employee.phone || "",
+
+    department:
+      employee.department || "",
+
+    position:
+      employee.position || "",
+
+    hireDate:
+      employee.hireDate || "",
+
+    username:
+      employee.username || "",
+
+    password:
+      employee.password || "",
+
+    status:
+      employee.status || "ACTIVE",
+  }));
+};
+  // =====================================================
+  // FORMAT ATTENDANCE DATA
+  // =====================================================
+
+  const formatAttendance = (data) => {
+    if (!Array.isArray(data)) {
+      return [];
+    }
+
+    return data.map((attendance) => ({
+      attendanceId: attendance.attendanceid,
+      employeeId: attendance.employeeid,
+
+      checkIn: attendance.checkin || null,
+      checkOut: attendance.checkout || null,
+
+      signIn: attendance.checkin || null,
+      signOut: attendance.checkout || null,
+
+      date: attendance.checkin
+        ? String(attendance.checkin).substring(0, 10)
+        : "",
+
+      status:
+        attendance.status ||
+        "PRESENT",
+
+      attendanceStatus:
+        attendance.status ||
+        "PRESENT",
+
+      checkoutLatitude:
+        attendance.checkout_latitude ??
+        null,
+
+      checkoutLongitude:
+        attendance.checkout_longitude ??
+        null,
+
+      signOutLatitude:
+        attendance.checkout_latitude ??
+        null,
+
+      signOutLongitude:
+        attendance.checkout_longitude ??
+        null,
+
+      latitude:
+        attendance.checkout_latitude ??
+        null,
+
+      longitude:
+        attendance.checkout_longitude ??
+        null,
+    }));
+  };
+
+  // =====================================================
+  // LOAD EMPLOYEES
+  // =====================================================
+
+  const loadEmployees = async () => {
+    try {
+      const data = await getEmployees();
+
+      const formattedEmployees =
+        formatEmployees(data);
+
+      setEmployees(formattedEmployees);
+
+      console.log(
+        "Employees loaded:",
+        formattedEmployees
+      );
+    } catch (error) {
+      console.error(
+        "Error loading employees:",
+        error
+      );
+
+      alert(
+        "Failed to load employees from backend."
+      );
+    }
+  };
+
+  // =====================================================
+  // LOAD ATTENDANCE
+  // =====================================================
+
+  const loadAttendance = async () => {
+    try {
+      const data = await getAttendance();
+
+      const formattedAttendance =
+        formatAttendance(data);
+
+      setAttendanceRecords(
+        formattedAttendance
+      );
+
+      console.log(
+        "Attendance loaded:",
+        formattedAttendance
+      );
+    } catch (error) {
+      console.error(
+        "Error loading attendance:",
+        error
+      );
+
+      setAttendanceRecords([]);
+
+      alert(
+        "Failed to load attendance from backend."
+      );
+    }
+  };
+
+  // =====================================================
+  // LOAD ALL DATA WHEN PAGE OPENS
   // =====================================================
 
   useEffect(() => {
-
-    // Load employees
-    const savedEmployees =
-      localStorage.getItem("employees");
-
-    if (savedEmployees) {
-      try {
-        setEmployees(JSON.parse(savedEmployees));
-      } catch (error) {
-        console.error(
-          "Error loading employees:",
-          error
-        );
-      }
-    }
-
-    // Load attendance
-    const savedAttendance =
-      localStorage.getItem("employeeAttendance");
-
-    if (savedAttendance) {
-      try {
-        const parsedAttendance =
-          JSON.parse(savedAttendance);
-
-        if (Array.isArray(parsedAttendance)) {
-          setAttendanceRecords(parsedAttendance);
-        }
-      } catch (error) {
-        console.error(
-          "Error loading attendance:",
-          error
-        );
-      }
-    }
-
+    loadEmployees();
+    loadAttendance();
   }, []);
 
   // =====================================================
-  // RELOAD ATTENDANCE WHEN ADMIN OPENS ATTENDANCE PAGE
+  // RELOAD ATTENDANCE WHEN ADMIN OPENS ATTENDANCE
   // =====================================================
 
   useEffect(() => {
-
-    if (activeMenu === "View Employees Attendance") {
-
-      const savedAttendance =
-        localStorage.getItem("employeeAttendance");
-
-      if (savedAttendance) {
-
-        try {
-
-          const parsedAttendance =
-            JSON.parse(savedAttendance);
-
-          if (Array.isArray(parsedAttendance)) {
-            setAttendanceRecords(parsedAttendance);
-          }
-
-        } catch (error) {
-
-          console.error(
-            "Error loading attendance:",
-            error
-          );
-
-        }
-
-      } else {
-
-        setAttendanceRecords([]);
-
-      }
-
+    if (
+      activeMenu ===
+      "View Employees Attendance"
+    ) {
+      loadEmployees();
+      loadAttendance();
     }
-
   }, [activeMenu]);
 
   // =====================================================
@@ -162,16 +273,17 @@ function AdminDashboard({ admin }) {
   // =====================================================
 
   const handlePhotoUpload = (event) => {
+    const file =
+      event.target.files?.[0];
 
-    const file = event.target.files[0];
-
-    if (file) {
-
-      const imageUrl =
-        URL.createObjectURL(file);
-
-      setAdminPhoto(imageUrl);
+    if (!file) {
+      return;
     }
+
+    const imageUrl =
+      URL.createObjectURL(file);
+
+    setAdminPhoto(imageUrl);
   };
 
   // =====================================================
@@ -179,8 +291,10 @@ function AdminDashboard({ admin }) {
   // =====================================================
 
   const handleEmployeeChange = (event) => {
-
-    const { name, value } = event.target;
+    const {
+      name,
+      value,
+    } = event.target;
 
     setEmployeeForm((previous) => ({
       ...previous,
@@ -192,12 +306,12 @@ function AdminDashboard({ admin }) {
   // REGISTER EMPLOYEE
   // =====================================================
 
-  const handleEmployeeSubmit = (event) => {
-
+  const handleEmployeeSubmit = async (
+    event
+  ) => {
     event.preventDefault();
 
     if (
-      !employeeForm.employeeId ||
       !employeeForm.firstName ||
       !employeeForm.lastName ||
       !employeeForm.email ||
@@ -206,47 +320,89 @@ function AdminDashboard({ admin }) {
       !employeeForm.position ||
       !employeeForm.hireDate
     ) {
-
       alert(
         "Please fill in all required fields."
       );
-
       return;
     }
 
-    const newEmployee = {
-      id: Date.now(),
-      ...employeeForm,
-    };
+    try {
+      const firstName =
+        employeeForm.firstName
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, "");
 
-    const updatedEmployees = [
-      ...employees,
-      newEmployee,
-    ];
+      const lastName =
+        employeeForm.lastName
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, "");
 
-    setEmployees(updatedEmployees);
+      const username =
+        `${firstName}${lastName}123`;
 
-    // Save employees
-    localStorage.setItem(
-      "employees",
-      JSON.stringify(updatedEmployees)
-    );
+      const newEmployee = {
+        firstname:
+          employeeForm.firstName.trim(),
 
-    // Clear form
-    setEmployeeForm({
-      employeeId: "",
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      department: "",
-      position: "",
-      hireDate: "",
-    });
+        lastname:
+          employeeForm.lastName.trim(),
 
-    alert(
-      "Employee registered successfully!"
-    );
+        email:
+          employeeForm.email.trim(),
+
+        phone:
+          employeeForm.phone.trim(),
+
+        department:
+          employeeForm.department,
+
+        position:
+          employeeForm.position,
+
+        hiredate:
+          employeeForm.hireDate,
+
+        username,
+        password: "123456",
+        status: "ACTIVE",
+      };
+
+      console.log(
+        "Creating employee:",
+        newEmployee
+      );
+
+      await createEmployee(
+        newEmployee
+      );
+
+      alert(
+        `Employee registered successfully!\n\nUsername: ${username}\nPassword: 123456`
+      );
+
+      await loadEmployees();
+
+      setEmployeeForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        department: "",
+        position: "",
+        hireDate: "",
+      });
+    } catch (error) {
+      console.error(
+        "Error creating employee:",
+        error
+      );
+
+      alert(
+        "Failed to register employee. Check backend and database."
+      );
+    }
   };
 
   // =====================================================
@@ -255,32 +411,42 @@ function AdminDashboard({ admin }) {
 
   const filteredEmployees =
     employees.filter((employee) => {
-
       const search =
-        searchTerm.toLowerCase();
+        searchTerm
+          .toLowerCase()
+          .trim();
 
       return (
-        employee.employeeId
-          ?.toLowerCase()
+        String(
+          employee.employeeId ?? ""
+        )
+          .toLowerCase()
           .includes(search) ||
 
-        employee.firstName
-          ?.toLowerCase()
+        String(
+          employee.firstName ?? ""
+        )
+          .toLowerCase()
           .includes(search) ||
 
-        employee.lastName
-          ?.toLowerCase()
+        String(
+          employee.lastName ?? ""
+        )
+          .toLowerCase()
           .includes(search) ||
 
-        employee.department
-          ?.toLowerCase()
+        String(
+          employee.department ?? ""
+        )
+          .toLowerCase()
           .includes(search) ||
 
-        employee.position
-          ?.toLowerCase()
+        String(
+          employee.position ?? ""
+        )
+          .toLowerCase()
           .includes(search)
       );
-
     });
 
   // =====================================================
@@ -304,22 +470,19 @@ function AdminDashboard({ admin }) {
   const getEmployeeInformation = (
     attendance
   ) => {
-
     const employeeId =
-      attendance.employeeId ||
-      attendance.id ||
+      attendance.employeeId ??
+      attendance.employeeid ??
+      attendance.id ??
       attendance.employeeID;
 
-    const employee =
-      employees.find(
-        (item) =>
-          String(item.employeeId) ===
-            String(employeeId) ||
-          String(item.id) ===
-            String(employeeId)
-      );
-
-    return employee;
+    return employees.find(
+      (item) =>
+        String(item.employeeId) ===
+          String(employeeId) ||
+        String(item.id) ===
+          String(employeeId)
+    );
   };
 
   // =====================================================
@@ -327,13 +490,46 @@ function AdminDashboard({ admin }) {
   // =====================================================
 
   const formatTime = (time) => {
-
     if (!time) {
       return "-";
     }
 
-    return time;
+    try {
+      return new Date(
+        time
+      ).toLocaleTimeString(
+        "en-US",
+        {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone:
+            "Africa/Dar_es_Salaam",
+        }
+      );
+    } catch {
+      return time;
+    }
   };
+
+  // =====================================================
+  // GET TODAY DATE TANZANIA
+  // =====================================================
+
+  const getTodayDate = () => {
+    return new Intl.DateTimeFormat(
+      "en-CA",
+      {
+        timeZone:
+          "Africa/Dar_es_Salaam",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }
+    ).format(new Date());
+  };
+
+  const today =
+    getTodayDate();
 
   // =====================================================
   // GET ATTENDANCE LOCATION
@@ -342,65 +538,85 @@ function AdminDashboard({ admin }) {
   const getAttendanceLocation = (
     attendance
   ) => {
-
     const latitude =
+      attendance.checkoutLatitude ??
+      attendance.signOutLatitude ??
+      attendance.latitude ??
+      attendance.checkout_latitude ??
       attendance.signInLatitude ??
-      attendance.latitude;
+      null;
 
     const longitude =
+      attendance.checkoutLongitude ??
+      attendance.signOutLongitude ??
+      attendance.longitude ??
+      attendance.checkout_longitude ??
       attendance.signInLongitude ??
-      attendance.longitude;
+      null;
 
     if (
-      latitude === undefined ||
       latitude === null ||
-      longitude === undefined ||
-      longitude === null
+      latitude === undefined ||
+      longitude === null ||
+      longitude === undefined
     ) {
-
       return null;
     }
 
     return {
       latitude,
       longitude,
+
       signInLatitude:
         attendance.signInLatitude ??
-        attendance.latitude,
+        null,
+
       signInLongitude:
         attendance.signInLongitude ??
-        attendance.longitude,
+        null,
+
       signOutLatitude:
-        attendance.signOutLatitude,
+        attendance.signOutLatitude ??
+        attendance.checkoutLatitude ??
+        attendance.checkout_latitude ??
+        null,
+
       signOutLongitude:
-        attendance.signOutLongitude,
+        attendance.signOutLongitude ??
+        attendance.checkoutLongitude ??
+        attendance.checkout_longitude ??
+        null,
+
       distance:
-        attendance.signInDistanceFromSchool,
+        attendance.signInDistanceFromSchool ??
+        null,
+
       status:
-        attendance.signInLocationStatus ||
+        attendance.signInLocationStatus ??
         "UNKNOWN",
+
       signOutDistance:
-        attendance.signOutDistanceFromSchool,
+        attendance.signOutDistanceFromSchool ??
+        null,
+
       signOutStatus:
-        attendance.signOutLocationStatus,
+        attendance.signOutLocationStatus ??
+        "UNKNOWN",
     };
   };
 
   // =====================================================
   // REVERSE GEOCODING
-  // GET PLACE NAME FROM LATITUDE + LONGITUDE
   // =====================================================
 
   const getPlaceName = async (
     latitude,
     longitude
   ) => {
-
     setLocationLoading(true);
     setPlaceName("");
 
     try {
-
       const response =
         await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`
@@ -416,21 +632,15 @@ function AdminDashboard({ admin }) {
         await response.json();
 
       if (data.display_name) {
-
         setPlaceName(
           data.display_name
         );
-
       } else {
-
         setPlaceName(
           "Place name not available"
         );
-
       }
-
     } catch (error) {
-
       console.error(
         "Reverse geocoding error:",
         error
@@ -439,11 +649,8 @@ function AdminDashboard({ admin }) {
       setPlaceName(
         "Unable to determine place name"
       );
-
     } finally {
-
       setLocationLoading(false);
-
     }
   };
 
@@ -454,14 +661,12 @@ function AdminDashboard({ admin }) {
   const handleViewLocation = (
     attendance
   ) => {
-
     const location =
       getAttendanceLocation(
         attendance
       );
 
     if (!location) {
-
       alert(
         "Location information is not available for this attendance record."
       );
@@ -495,7 +700,6 @@ function AdminDashboard({ admin }) {
   // =====================================================
 
   const closeLocationModal = () => {
-
     setSelectedLocation(null);
     setPlaceName("");
   };
@@ -508,9 +712,6 @@ function AdminDashboard({ admin }) {
     latitude,
     longitude
   ) => {
-
-    const zoom = 18;
-
     const delta = 0.002;
 
     const left =
@@ -537,10 +738,6 @@ function AdminDashboard({ admin }) {
   // ATTENDANCE SUMMARY
   // =====================================================
 
-  const today = new Date()
-    .toISOString()
-    .split("T")[0];
-
   const todayAttendance =
     attendanceRecords.filter(
       (attendance) =>
@@ -552,9 +749,16 @@ function AdminDashboard({ admin }) {
 
   const lateToday =
     todayAttendance.filter(
-      (attendance) =>
-        attendance.status === "Late" ||
-        attendance.attendanceStatus === "Late"
+      (attendance) => {
+        const status =
+          String(
+            attendance.status ||
+              attendance.attendanceStatus ||
+              ""
+          ).toUpperCase();
+
+        return status === "LATE";
+      }
     ).length;
 
   const absentToday =
@@ -569,8 +773,21 @@ function AdminDashboard({ admin }) {
   // =====================================================
 
   const handleLogout = () => {
+    localStorage.removeItem(
+      "adminLoggedIn"
+    );
 
-    localStorage.clear();
+    localStorage.removeItem(
+      "adminData"
+    );
+
+    localStorage.removeItem(
+      "employeeLoggedIn"
+    );
+
+    localStorage.removeItem(
+      "employeeData"
+    );
 
     window.location.href = "/";
   };
@@ -580,7 +797,6 @@ function AdminDashboard({ admin }) {
   // =====================================================
 
   return (
-
     <div className="admin-dashboard">
 
       {/* =====================================================
@@ -589,75 +805,66 @@ function AdminDashboard({ admin }) {
 
       <aside className="admin-sidebar">
 
-        {/* SCHOOL LOGO */}
-
         <div className="school-logo">
 
           <img
-            src="/LOGO.JPG"
+            src="/LOGO.jpg"
             alt="School Logo"
             className="sidebar-logo"
           />
 
           <div>
-
             <h2>AL-IHSAN</h2>
 
             <p>
               GIRLS SECONDARY SCHOOL
             </p>
-
           </div>
 
         </div>
 
         <div className="sidebar-line"></div>
 
-        {/* MENU */}
-
         <nav className="admin-menu">
 
-          {menuItems.map((item) => (
+          {menuItems.map(
+            (item) => (
+              <button
+                key={item.name}
+                className={`menu-item ${
+                  activeMenu ===
+                  item.name
+                    ? "active"
+                    : ""
+                }`}
+                onClick={() =>
+                  setActiveMenu(
+                    item.name
+                  )
+                }
+              >
+                <span className="menu-icon">
+                  {item.icon}
+                </span>
 
-            <button
-              key={item.name}
-              className={`menu-item ${
-                activeMenu === item.name
-                  ? "active"
-                  : ""
-              }`}
-              onClick={() =>
-                setActiveMenu(item.name)
-              }
-            >
-
-              <span className="menu-icon">
-                {item.icon}
-              </span>
-
-              <span>
-                {item.name}
-              </span>
-
-            </button>
-
-          ))}
+                <span>
+                  {item.name}
+                </span>
+              </button>
+            )
+          )}
 
         </nav>
-
-        {/* LOGOUT */}
 
         <button
           className="logout-button"
           onClick={handleLogout}
         >
-
           <span>🚪</span>
 
           <span>
             Logout
           </span>
-
         </button>
 
       </aside>
@@ -668,14 +875,11 @@ function AdminDashboard({ admin }) {
 
       <main className="admin-main">
 
-        {/* =====================================================
-            TOP BAR
-        ===================================================== */}
+        {/* TOP BAR */}
 
         <div className="top-bar">
 
           <div>
-
             <h1>
               Administrator Dashboard
             </h1>
@@ -684,35 +888,25 @@ function AdminDashboard({ admin }) {
               Manage and monitor the employee
               attendance system.
             </p>
-
           </div>
-
-          {/* SMALL ADMIN PROFILE */}
 
           <div className="admin-small-profile">
 
             {adminPhoto ? (
-
               <img
                 src={adminPhoto}
                 alt="Administrator"
                 className="small-profile-image uploaded-small-image"
               />
-
             ) : (
-
               <div className="small-profile-image">
-
                 {adminName
                   .substring(0, 2)
                   .toUpperCase()}
-
               </div>
-
             )}
 
             <div>
-
               <strong>
                 {adminName}
               </strong>
@@ -720,7 +914,6 @@ function AdminDashboard({ admin }) {
               <span>
                 {adminPosition}
               </span>
-
             </div>
 
           </div>
@@ -732,37 +925,31 @@ function AdminDashboard({ admin }) {
         ===================================================== */}
 
         {activeMenu === "Home" && (
-
           <section className="home-section">
-
-            {/* WELCOME */}
 
             <div className="welcome-card">
 
               <div>
-
                 <h2>
-                  Welcome back, {adminName}! 👋
+                  Welcome back,{" "}
+                  {adminName}! 👋
                 </h2>
 
                 <p>
-                  Welcome to the Al-Ihsan Girls
-                  Secondary School Employee
-                  Attendance Management System.
+                  Welcome to the Al-Ihsan
+                  Girls Secondary School
+                  Employee Attendance
+                  Management System.
                 </p>
-
               </div>
 
             </div>
-
-            {/* PROFILE */}
 
             <div className="profile-card">
 
               <div className="profile-header">
 
                 <div>
-
                   <h2>
                     Administrator Profile
                   </h2>
@@ -770,37 +957,31 @@ function AdminDashboard({ admin }) {
                   <p>
                     Your personal information
                   </p>
-
                 </div>
 
               </div>
 
               <div className="profile-content">
 
-                {/* PHOTO */}
-
                 <div className="admin-photo-container">
 
                   <div className="admin-photo-wrapper">
 
                     {adminPhoto ? (
-
                       <img
                         src={adminPhoto}
                         alt="Administrator"
                         className="admin-photo uploaded-admin-photo"
                       />
-
                     ) : (
-
                       <div className="admin-photo">
-
                         {adminName
-                          .substring(0, 2)
+                          .substring(
+                            0,
+                            2
+                          )
                           .toUpperCase()}
-
                       </div>
-
                     )}
 
                   </div>
@@ -832,12 +1013,9 @@ function AdminDashboard({ admin }) {
 
                 </div>
 
-                {/* INFORMATION */}
-
                 <div className="admin-information">
 
                   <div className="information-item">
-
                     <span className="information-label">
                       Full Name
                     </span>
@@ -845,11 +1023,9 @@ function AdminDashboard({ admin }) {
                     <strong>
                       {adminName}
                     </strong>
-
                   </div>
 
                   <div className="information-item">
-
                     <span className="information-label">
                       Position
                     </span>
@@ -857,11 +1033,9 @@ function AdminDashboard({ admin }) {
                     <strong>
                       {adminPosition}
                     </strong>
-
                   </div>
 
                   <div className="information-item">
-
                     <span className="information-label">
                       Contact
                     </span>
@@ -869,11 +1043,9 @@ function AdminDashboard({ admin }) {
                     <strong>
                       {adminPhone}
                     </strong>
-
                   </div>
 
                   <div className="information-item">
-
                     <span className="information-label">
                       Email
                     </span>
@@ -881,7 +1053,6 @@ function AdminDashboard({ admin }) {
                     <strong>
                       {adminEmail}
                     </strong>
-
                   </div>
 
                 </div>
@@ -891,14 +1062,14 @@ function AdminDashboard({ admin }) {
             </div>
 
           </section>
-
         )}
 
         {/* =====================================================
             VIEW EMPLOYEES ATTENDANCE
         ===================================================== */}
 
-        {activeMenu === "View Employees Attendance" && (
+        {activeMenu ===
+          "View Employees Attendance" && (
 
           <div
             className="view-attendance-container"
@@ -907,14 +1078,12 @@ function AdminDashboard({ admin }) {
             }}
           >
 
-            {/* PAGE HEADER */}
-
             <div
               style={{
-                marginBottom: "20px",
+                marginBottom:
+                  "20px",
               }}
             >
-
               <h2>
                 View Employees Attendance
               </h2>
@@ -924,143 +1093,154 @@ function AdminDashboard({ admin }) {
                   color: "#666",
                 }}
               >
-                Administrator can view and monitor
-                employee attendance records here.
+                Administrator can view and
+                monitor employee attendance
+                records from the backend.
               </p>
-
             </div>
 
-            {/* =================================================
-                SUMMARY CARDS
-            ================================================= */}
+            {/* SUMMARY CARDS */}
 
             <div
               style={{
-                display: "grid",
+                display:
+                  "grid",
                 gridTemplateColumns:
                   "repeat(auto-fit, minmax(160px, 1fr))",
                 gap: "15px",
-                marginBottom: "25px",
+                marginBottom:
+                  "25px",
               }}
             >
 
-              {/* TOTAL EMPLOYEES */}
-
               <div
                 style={{
-                  background: "#e3f2fd",
-                  padding: "20px",
-                  borderRadius: "10px",
-                  textAlign: "center",
+                  background:
+                    "#e3f2fd",
+                  padding:
+                    "20px",
+                  borderRadius:
+                    "10px",
+                  textAlign:
+                    "center",
                 }}
               >
-
                 <h4>
                   Total Employees
                 </h4>
 
                 <span
                   style={{
-                    fontSize: "28px",
-                    fontWeight: "bold",
+                    fontSize:
+                      "28px",
+                    fontWeight:
+                      "bold",
                   }}
                 >
                   {employees.length}
                 </span>
-
               </div>
-
-              {/* PRESENT */}
 
               <div
                 style={{
-                  background: "#e8f5e9",
-                  padding: "20px",
-                  borderRadius: "10px",
-                  textAlign: "center",
+                  background:
+                    "#e8f5e9",
+                  padding:
+                    "20px",
+                  borderRadius:
+                    "10px",
+                  textAlign:
+                    "center",
                 }}
               >
-
                 <h4>
                   Present Today
                 </h4>
 
                 <span
                   style={{
-                    fontSize: "28px",
-                    fontWeight: "bold",
+                    fontSize:
+                      "28px",
+                    fontWeight:
+                      "bold",
                   }}
                 >
                   {presentToday}
                 </span>
-
               </div>
-
-              {/* LATE */}
 
               <div
                 style={{
-                  background: "#fffde7",
-                  padding: "20px",
-                  borderRadius: "10px",
-                  textAlign: "center",
+                  background:
+                    "#fffde7",
+                  padding:
+                    "20px",
+                  borderRadius:
+                    "10px",
+                  textAlign:
+                    "center",
                 }}
               >
-
                 <h4>
                   Late Today
                 </h4>
 
                 <span
                   style={{
-                    fontSize: "28px",
-                    fontWeight: "bold",
+                    fontSize:
+                      "28px",
+                    fontWeight:
+                      "bold",
                   }}
                 >
                   {lateToday}
                 </span>
-
               </div>
-
-              {/* ABSENT */}
 
               <div
                 style={{
-                  background: "#ffebee",
-                  padding: "20px",
-                  borderRadius: "10px",
-                  textAlign: "center",
+                  background:
+                    "#ffebee",
+                  padding:
+                    "20px",
+                  borderRadius:
+                    "10px",
+                  textAlign:
+                    "center",
                 }}
               >
-
                 <h4>
                   Absent Today
                 </h4>
 
                 <span
                   style={{
-                    fontSize: "28px",
-                    fontWeight: "bold",
+                    fontSize:
+                      "28px",
+                    fontWeight:
+                      "bold",
                   }}
                 >
                   {absentToday}
                 </span>
-
               </div>
 
             </div>
 
-            {/* =================================================
-                WEEKLY REPORT
-            ================================================= */}
+            {/* WEEKLY REPORT */}
 
             <div
               style={{
-                background: "#fff",
-                padding: "20px",
-                borderRadius: "10px",
-                border: "1px solid #ddd",
-                marginBottom: "25px",
+                background:
+                  "#fff",
+                padding:
+                  "20px",
+                borderRadius:
+                  "10px",
+                border:
+                  "1px solid #ddd",
+                marginBottom:
+                  "25px",
               }}
             >
 
@@ -1070,16 +1250,20 @@ function AdminDashboard({ admin }) {
 
               <div
                 style={{
-                  height: "180px",
-                  display: "flex",
-                  alignItems: "flex-end",
+                  display:
+                    "flex",
                   justifyContent:
                     "space-around",
-                  borderBottom:
-                    "2px solid #333",
-                  borderLeft:
-                    "2px solid #333",
-                  marginTop: "20px",
+                  alignItems:
+                    "center",
+                  padding:
+                    "30px 10px",
+                  marginTop:
+                    "20px",
+                  background:
+                    "#f8f9fa",
+                  borderRadius:
+                    "10px",
                 }}
               >
 
@@ -1089,114 +1273,106 @@ function AdminDashboard({ admin }) {
                   "Wed",
                   "Thu",
                   "Fri",
-                ].map((day) => (
-
-                  <div
-                    key={day}
-                    style={{
-                      textAlign: "center",
-                    }}
-                  >
-
+                ].map(
+                  (day) => (
                     <div
+                      key={day}
                       style={{
-                        width: "35px",
-                        height: "0px",
+                        textAlign:
+                          "center",
                       }}
-                    ></div>
+                    >
+                      <div
+                        style={{
+                          fontSize:
+                            "25px",
+                          marginBottom:
+                            "8px",
+                        }}
+                      >
+                        📊
+                      </div>
 
-                    <strong>
-                      {day}
-                    </strong>
-
-                  </div>
-
-                ))}
+                      <strong>
+                        {day}
+                      </strong>
+                    </div>
+                  )
+                )}
 
               </div>
 
               <p
                 style={{
-                  textAlign: "center",
-                  color: "#999",
+                  textAlign:
+                    "center",
+                  color:
+                    "#999",
+                  marginTop:
+                    "15px",
                 }}
               >
-                Weekly chart will be connected
-                to the attendance database later.
+                Attendance data is now
+                loaded from the backend.
               </p>
 
             </div>
 
-            {/* =================================================
-                DAILY ATTENDANCE TABLE
-            ================================================= */}
+            {/* ATTENDANCE TABLE */}
 
             <div
               style={{
-                background: "#fff",
-                padding: "20px",
-                borderRadius: "10px",
-                border: "1px solid #ddd",
-                overflowX: "auto",
+                background:
+                  "#fff",
+                padding:
+                  "20px",
+                borderRadius:
+                  "10px",
+                border:
+                  "1px solid #ddd",
+                overflowX:
+                  "auto",
               }}
             >
 
               <div
                 style={{
-                  display: "flex",
+                  display:
+                    "flex",
                   justifyContent:
                     "space-between",
-                  alignItems: "center",
-                  marginBottom: "15px",
-                  gap: "10px",
+                  alignItems:
+                    "center",
+                  marginBottom:
+                    "15px",
+                  gap:
+                    "10px",
                 }}
               >
 
                 <div>
-
                   <h3>
                     Daily Attendance Records
                   </h3>
 
                   <p
                     style={{
-                      color: "#777",
-                      margin: "5px 0 0",
+                      color:
+                        "#777",
+                      margin:
+                        "5px 0 0",
                     }}
                   >
-                    Attendance records including
-                    employee location.
+                    Attendance records
+                    loaded from MySQL
+                    through Spring Boot.
                   </p>
-
                 </div>
 
                 <button
                   onClick={() => {
-
-                    const saved =
-                      localStorage.getItem(
-                        "employeeAttendance"
-                      );
-
-                    if (saved) {
-
-                      try {
-
-                        setAttendanceRecords(
-                          JSON.parse(saved)
-                        );
-
-                      } catch {
-
-                        setAttendanceRecords([]);
-                      }
-
-                    } else {
-
-                      setAttendanceRecords([]);
-
-                    }
-
+                    loadAttendance();
+                    loadEmployees();
                   }}
                   style={{
                     padding:
@@ -1222,105 +1398,71 @@ function AdminDashboard({ admin }) {
 
               <table
                 style={{
-                  width: "100%",
+                  width:
+                    "100%",
                   borderCollapse:
                     "collapse",
-                  marginTop: "15px",
-                  minWidth: "1000px",
+                  marginTop:
+                    "15px",
+                  minWidth:
+                    "1100px",
                 }}
               >
 
                 <thead>
-
                   <tr
                     style={{
                       background:
                         "#f5f5f5",
                     }}
                   >
-
-                    <th
-                      style={{
-                        padding: "12px",
-                      }}
-                    >
+                    <th style={{ padding: "12px" }}>
                       Date
                     </th>
 
-                    <th
-                      style={{
-                        padding: "12px",
-                      }}
-                    >
+                    <th style={{ padding: "12px" }}>
                       First Name
                     </th>
 
-                    <th
-                      style={{
-                        padding: "12px",
-                      }}
-                    >
+                    <th style={{ padding: "12px" }}>
                       Last Name
                     </th>
 
-                    <th
-                      style={{
-                        padding: "12px",
-                      }}
-                    >
+                    <th style={{ padding: "12px" }}>
                       ID
                     </th>
 
-                    <th
-                      style={{
-                        padding: "12px",
-                      }}
-                    >
+                    <th style={{ padding: "12px" }}>
                       Position
                     </th>
 
-                    <th
-                      style={{
-                        padding: "12px",
-                      }}
-                    >
+                    <th style={{ padding: "12px" }}>
                       Sign In
                     </th>
 
-                    <th
-                      style={{
-                        padding: "12px",
-                      }}
-                    >
+                    <th style={{ padding: "12px" }}>
                       Sign Out
                     </th>
 
-                    <th
-                      style={{
-                        padding: "12px",
-                      }}
-                    >
+                    <th style={{ padding: "12px" }}>
                       Status
                     </th>
 
-                    <th
-                      style={{
-                        padding: "12px",
-                      }}
-                    >
+                    <th style={{ padding: "12px" }}>
                       Location
                     </th>
-
                   </tr>
-
                 </thead>
 
                 <tbody>
 
-                  {attendanceRecords.length > 0 ? (
-
+                  {attendanceRecords.length >
+                  0 ? (
                     attendanceRecords.map(
-                      (attendance, index) => {
+                      (
+                        attendance,
+                        index
+                      ) => {
 
                         const employee =
                           getEmployeeInformation(
@@ -1333,10 +1475,8 @@ function AdminDashboard({ admin }) {
                           );
 
                         return (
-
                           <tr
                             key={
-                              attendance.id ||
                               attendance.attendanceId ||
                               index
                             }
@@ -1346,46 +1486,40 @@ function AdminDashboard({ admin }) {
                             }}
                           >
 
-                            {/* DATE */}
-
                             <td
                               style={{
-                                padding: "12px",
+                                padding:
+                                  "12px",
                               }}
                             >
                               {attendance.date ||
                                 "-"}
                             </td>
 
-                            {/* FIRST NAME */}
-
                             <td
                               style={{
-                                padding: "12px",
+                                padding:
+                                  "12px",
                               }}
                             >
                               {employee?.firstName ||
-                                attendance.firstName ||
                                 "-"}
                             </td>
 
-                            {/* LAST NAME */}
-
                             <td
                               style={{
-                                padding: "12px",
+                                padding:
+                                  "12px",
                               }}
                             >
                               {employee?.lastName ||
-                                attendance.lastName ||
                                 "-"}
                             </td>
 
-                            {/* ID */}
-
                             <td
                               style={{
-                                padding: "12px",
+                                padding:
+                                  "12px",
                               }}
                             >
                               {employee?.employeeId ||
@@ -1393,50 +1527,44 @@ function AdminDashboard({ admin }) {
                                 "-"}
                             </td>
 
-                            {/* POSITION */}
-
                             <td
                               style={{
-                                padding: "12px",
+                                padding:
+                                  "12px",
                               }}
                             >
                               {employee?.position ||
-                                attendance.position ||
                                 "-"}
                             </td>
 
-                            {/* SIGN IN */}
-
                             <td
                               style={{
-                                padding: "12px",
+                                padding:
+                                  "12px",
                               }}
                             >
                               {formatTime(
-                                attendance.signIn
+                                attendance.checkIn
                               )}
                             </td>
 
-                            {/* SIGN OUT */}
-
                             <td
                               style={{
-                                padding: "12px",
+                                padding:
+                                  "12px",
                               }}
                             >
                               {formatTime(
-                                attendance.signOut
+                                attendance.checkOut
                               )}
                             </td>
 
-                            {/* STATUS */}
-
                             <td
                               style={{
-                                padding: "12px",
+                                padding:
+                                  "12px",
                               }}
                             >
-
                               <span
                                 style={{
                                   display:
@@ -1446,44 +1574,37 @@ function AdminDashboard({ admin }) {
                                   borderRadius:
                                     "20px",
                                   background:
-                                    location?.status ===
-                                    "INSIDE_SCHOOL"
-                                      ? "#e8f5e9"
-                                      : "#ffebee",
+                                    String(
+                                      attendance.status
+                                    ).toUpperCase() ===
+                                    "LATE"
+                                      ? "#fff3cd"
+                                      : "#e8f5e9",
                                   color:
-                                    location?.status ===
-                                    "INSIDE_SCHOOL"
-                                      ? "#2e7d32"
-                                      : "#c62828",
+                                    String(
+                                      attendance.status
+                                    ).toUpperCase() ===
+                                    "LATE"
+                                      ? "#856404"
+                                      : "#2e7d32",
                                   fontSize:
                                     "12px",
                                   fontWeight:
                                     "bold",
                                 }}
                               >
-
-                                {location?.status ===
-                                "INSIDE_SCHOOL"
-                                  ? "Inside School"
-                                  : location?.status ===
-                                    "OUTSIDE_SCHOOL"
-                                  ? "Outside School"
-                                  : "Unknown"}
-
+                                {attendance.status ||
+                                  "PRESENT"}
                               </span>
-
                             </td>
-
-                            {/* LOCATION */}
 
                             <td
                               style={{
-                                padding: "12px",
+                                padding:
+                                  "12px",
                               }}
                             >
-
                               {location ? (
-
                                 <button
                                   onClick={() =>
                                     handleViewLocation(
@@ -1509,9 +1630,7 @@ function AdminDashboard({ admin }) {
                                 >
                                   📍 View Location
                                 </button>
-
                               ) : (
-
                                 <span
                                   style={{
                                     color:
@@ -1520,22 +1639,15 @@ function AdminDashboard({ admin }) {
                                 >
                                   No location
                                 </span>
-
                               )}
-
                             </td>
 
                           </tr>
-
                         );
-
                       }
                     )
-
                   ) : (
-
                     <tr>
-
                       <td
                         colSpan="9"
                         style={{
@@ -1547,7 +1659,6 @@ function AdminDashboard({ admin }) {
                             "#888",
                         }}
                       >
-
                         <div
                           style={{
                             fontSize:
@@ -1565,16 +1676,13 @@ function AdminDashboard({ admin }) {
                         <br />
 
                         <small>
-                          Attendance records will
-                          appear here after an
-                          employee completes
-                          attendance.
+                          Attendance records
+                          will appear here
+                          after an employee
+                          completes attendance.
                         </small>
-
                       </td>
-
                     </tr>
-
                   )}
 
                 </tbody>
@@ -1584,35 +1692,37 @@ function AdminDashboard({ admin }) {
             </div>
 
           </div>
-
         )}
 
         {/* =====================================================
             MANAGE EMPLOYEE
         ===================================================== */}
 
-        {activeMenu === "Manage Employee" && (
+        {activeMenu ===
+          "Manage Employee" && (
 
           <div
             className="manage-employee-container"
             style={{
-              padding: "20px",
-              maxWidth: "1200px",
+              padding:
+                "20px",
+              maxWidth:
+                "1200px",
             }}
           >
 
-            {/* PAGE HEADER */}
-
             <div
               style={{
-                marginBottom: "25px",
+                marginBottom:
+                  "25px",
               }}
             >
-
               <h2
                 style={{
-                  color: "#1b4332",
-                  marginBottom: "5px",
+                  color:
+                    "#1b4332",
+                  marginBottom:
+                    "5px",
                 }}
               >
                 Employee Management
@@ -1620,24 +1730,29 @@ function AdminDashboard({ admin }) {
 
               <p
                 style={{
-                  color: "#666",
+                  color:
+                    "#666",
                 }}
               >
-                Register new employees and manage
-                staff records.
+                Register new employees and
+                manage staff records.
               </p>
-
             </div>
 
-            {/* REGISTER EMPLOYEE FORM */}
+            {/* REGISTER FORM */}
 
             <div
               style={{
-                background: "#fff",
-                padding: "25px",
-                borderRadius: "12px",
-                marginBottom: "30px",
-                border: "1px solid #ddd",
+                background:
+                  "#fff",
+                padding:
+                  "25px",
+                borderRadius:
+                  "12px",
+                marginBottom:
+                  "30px",
+                border:
+                  "1px solid #ddd",
               }}
             >
 
@@ -1664,7 +1779,8 @@ function AdminDashboard({ admin }) {
                     "30px",
                 }}
               >
-                Enter employee information below
+                Enter employee information
+                below
               </p>
 
               <form
@@ -1685,30 +1801,6 @@ function AdminDashboard({ admin }) {
                 >
 
                   <div>
-
-                    <label>
-                      Employee ID *
-                    </label>
-
-                    <input
-                      type="text"
-                      name="employeeId"
-                      value={
-                        employeeForm.employeeId
-                      }
-                      onChange={
-                        handleEmployeeChange
-                      }
-                      placeholder="e.g. AGS001"
-                      style={
-                        inputStyle
-                      }
-                    />
-
-                  </div>
-
-                  <div>
-
                     <label>
                       First Name *
                     </label>
@@ -1727,11 +1819,9 @@ function AdminDashboard({ admin }) {
                         inputStyle
                       }
                     />
-
                   </div>
 
                   <div>
-
                     <label>
                       Last Name *
                     </label>
@@ -1750,11 +1840,9 @@ function AdminDashboard({ admin }) {
                         inputStyle
                       }
                     />
-
                   </div>
 
                   <div>
-
                     <label>
                       Email *
                     </label>
@@ -1773,11 +1861,9 @@ function AdminDashboard({ admin }) {
                         inputStyle
                       }
                     />
-
                   </div>
 
                   <div>
-
                     <label>
                       Phone Number *
                     </label>
@@ -1791,16 +1877,14 @@ function AdminDashboard({ admin }) {
                       onChange={
                         handleEmployeeChange
                       }
-                      placeholder="+255..."
+                      placeholder="0712345678"
                       style={
                         inputStyle
                       }
                     />
-
                   </div>
 
                   <div>
-
                     <label>
                       Department *
                     </label>
@@ -1817,7 +1901,6 @@ function AdminDashboard({ admin }) {
                         inputStyle
                       }
                     >
-
                       <option value="">
                         Select department
                       </option>
@@ -1841,13 +1924,10 @@ function AdminDashboard({ admin }) {
                       <option value="Human Resources">
                         Human Resources
                       </option>
-
                     </select>
-
                   </div>
 
                   <div>
-
                     <label>
                       Position *
                     </label>
@@ -1866,11 +1946,14 @@ function AdminDashboard({ admin }) {
                         inputStyle
                       }
                     />
-
                   </div>
 
-                  <div>
-
+                  <div
+                    style={{
+                      gridColumn:
+                        "1 / -1",
+                    }}
+                  >
                     <label>
                       Hire Date *
                     </label>
@@ -1888,9 +1971,33 @@ function AdminDashboard({ admin }) {
                         inputStyle
                       }
                     />
-
                   </div>
 
+                </div>
+
+                <div
+                  style={{
+                    marginTop:
+                      "15px",
+                    padding:
+                      "12px",
+                    background:
+                      "#fff8e1",
+                    borderRadius:
+                      "8px",
+                    color:
+                      "#795548",
+                  }}
+                >
+                  <strong>
+                    Login credentials:
+                  </strong>{" "}
+                  Username will be generated
+                  automatically and the temporary
+                  password will be{" "}
+                  <strong>
+                    123456
+                  </strong>.
                 </div>
 
                 <button
@@ -1957,9 +2064,7 @@ function AdminDashboard({ admin }) {
                 value={
                   searchTerm
                 }
-                onChange={(
-                  event
-                ) =>
+                onChange={(event) =>
                   setSearchTerm(
                     event.target.value
                   )
@@ -1993,18 +2098,18 @@ function AdminDashboard({ admin }) {
                       "100%",
                     borderCollapse:
                       "collapse",
+                    minWidth:
+                      "900px",
                   }}
                 >
 
                   <thead>
-
                     <tr
                       style={{
                         background:
                           "#f5f5f5",
                       }}
                     >
-
                       <th>ID</th>
                       <th>First Name</th>
                       <th>Last Name</th>
@@ -2013,19 +2118,15 @@ function AdminDashboard({ admin }) {
                       <th>Department</th>
                       <th>Position</th>
                       <th>Hire Date</th>
-
                     </tr>
-
                   </thead>
 
                   <tbody>
 
                     {filteredEmployees.length >
                     0 ? (
-
                       filteredEmployees.map(
                         (employee) => (
-
                           <tr
                             key={
                               employee.id
@@ -2035,7 +2136,6 @@ function AdminDashboard({ admin }) {
                                 "1px solid #eee",
                             }}
                           >
-
                             <td>
                               {
                                 employee.employeeId
@@ -2083,16 +2183,11 @@ function AdminDashboard({ admin }) {
                                 employee.hireDate
                               }
                             </td>
-
                           </tr>
-
                         )
                       )
-
                     ) : (
-
                       <tr>
-
                         <td
                           colSpan="8"
                           style={{
@@ -2104,24 +2199,12 @@ function AdminDashboard({ admin }) {
                               "#888",
                           }}
                         >
-
                           👤
-
                           <br />
-
-                          No employee records found.
-
-                          <br />
-
-                          <small>
-                            Register an employee
-                            using the form above.
-                          </small>
-
+                          No employee records
+                          found.
                         </td>
-
                       </tr>
-
                     )}
 
                   </tbody>
@@ -2133,7 +2216,6 @@ function AdminDashboard({ admin }) {
             </div>
 
           </div>
-
         )}
 
         {/* =====================================================
@@ -2145,8 +2227,10 @@ function AdminDashboard({ admin }) {
           <div
             className="settings-container"
             style={{
-              padding: "20px",
-              maxWidth: "900px",
+              padding:
+                "20px",
+              maxWidth:
+                "900px",
             }}
           >
 
@@ -2156,7 +2240,6 @@ function AdminDashboard({ admin }) {
                   "25px",
               }}
             >
-
               <h2
                 style={{
                   color:
@@ -2172,11 +2255,10 @@ function AdminDashboard({ admin }) {
                     "#666",
                 }}
               >
-                Configure system rules, update
-                administrator profile, and manage
-                security settings.
+                Configure system rules,
+                administrator profile,
+                and security settings.
               </p>
-
             </div>
 
             {/* ADMIN PROFILE */}
@@ -2206,8 +2288,7 @@ function AdminDashboard({ admin }) {
                     "#777",
                 }}
               >
-                Update administrator profile
-                information.
+                Administrator information.
               </p>
 
               <div
@@ -2222,7 +2303,6 @@ function AdminDashboard({ admin }) {
               >
 
                 <div>
-
                   <label>
                     Full Name
                   </label>
@@ -2236,11 +2316,9 @@ function AdminDashboard({ admin }) {
                       inputStyle
                     }
                   />
-
                 </div>
 
                 <div>
-
                   <label>
                     Email Address
                   </label>
@@ -2254,11 +2332,9 @@ function AdminDashboard({ admin }) {
                       inputStyle
                     }
                   />
-
                 </div>
 
                 <div>
-
                   <label>
                     Phone Number
                   </label>
@@ -2272,11 +2348,9 @@ function AdminDashboard({ admin }) {
                       inputStyle
                     }
                   />
-
                 </div>
 
                 <div>
-
                   <label>
                     Role
                   </label>
@@ -2285,13 +2359,13 @@ function AdminDashboard({ admin }) {
                     type="text"
                     value="Administrator"
                     disabled
+                    readOnly
                     style={{
                       ...inputStyle,
                       background:
                         "#f5f5f5",
                     }}
                   />
-
                 </div>
 
               </div>
@@ -2325,8 +2399,8 @@ function AdminDashboard({ admin }) {
                     "#777",
                 }}
               >
-                Set official arrival and departure
-                times.
+                Set official arrival and
+                departure times.
               </p>
 
               <div
@@ -2341,7 +2415,6 @@ function AdminDashboard({ admin }) {
               >
 
                 <div>
-
                   <label>
                     Official Arrival Time
                   </label>
@@ -2352,11 +2425,9 @@ function AdminDashboard({ admin }) {
                       inputStyle
                     }
                   />
-
                 </div>
 
                 <div>
-
                   <label>
                     Official Departure Time
                   </label>
@@ -2367,7 +2438,6 @@ function AdminDashboard({ admin }) {
                       inputStyle
                     }
                   />
-
                 </div>
 
               </div>
@@ -2479,17 +2549,15 @@ function AdminDashboard({ admin }) {
             </div>
 
           </div>
-
         )}
 
         {/* =====================================================
             HELP CENTER
         ===================================================== */}
 
-        {activeMenu === "Help Center" && (
-
+        {activeMenu ===
+          "Help Center" && (
           <AdminHelpCenter />
-
         )}
 
       </main>
@@ -2516,7 +2584,8 @@ function AdminDashboard({ admin }) {
               "center",
             justifyContent:
               "center",
-            zIndex: 9999,
+            zIndex:
+              9999,
             padding:
               "20px",
           }}
@@ -2540,8 +2609,6 @@ function AdminDashboard({ admin }) {
                 "relative",
             }}
           >
-
-            {/* CLOSE BUTTON */}
 
             <button
               onClick={
@@ -2573,8 +2640,6 @@ function AdminDashboard({ admin }) {
               ✕
             </button>
 
-            {/* TITLE */}
-
             <h2
               style={{
                 color:
@@ -2594,8 +2659,8 @@ function AdminDashboard({ admin }) {
                   "20px",
               }}
             >
-              Location recorded when the employee
-              marked attendance.
+              Location recorded with
+              the attendance record.
             </p>
 
             {/* EMPLOYEE INFORMATION */}
@@ -2623,7 +2688,6 @@ function AdminDashboard({ admin }) {
                     "8px",
                 }}
               >
-
                 <small>
                   Employee
                 </small>
@@ -2637,13 +2701,10 @@ function AdminDashboard({ admin }) {
                   }}
                 >
                   {selectedLocation.employee?.firstName ||
-                    selectedLocation.attendance?.firstName ||
                     "-"}{" "}
                   {selectedLocation.employee?.lastName ||
-                    selectedLocation.attendance?.lastName ||
                     ""}
                 </strong>
-
               </div>
 
               <div
@@ -2656,7 +2717,6 @@ function AdminDashboard({ admin }) {
                     "8px",
                 }}
               >
-
                 <small>
                   Employee ID
                 </small>
@@ -2673,7 +2733,6 @@ function AdminDashboard({ admin }) {
                     selectedLocation.attendance?.employeeId ||
                     "-"}
                 </strong>
-
               </div>
 
               <div
@@ -2686,7 +2745,6 @@ function AdminDashboard({ admin }) {
                     "8px",
                 }}
               >
-
                 <small>
                   Date
                 </small>
@@ -2702,12 +2760,11 @@ function AdminDashboard({ admin }) {
                   {selectedLocation.attendance?.date ||
                     "-"}
                 </strong>
-
               </div>
 
             </div>
 
-            {/* LOCATION INFORMATION */}
+            {/* GPS INFORMATION */}
 
             <div
               style={{
@@ -2738,7 +2795,6 @@ function AdminDashboard({ admin }) {
               >
 
                 <div>
-
                   <span
                     style={{
                       color:
@@ -2762,11 +2818,9 @@ function AdminDashboard({ admin }) {
                       selectedLocation.latitude
                     }
                   </strong>
-
                 </div>
 
                 <div>
-
                   <span
                     style={{
                       color:
@@ -2790,11 +2844,9 @@ function AdminDashboard({ admin }) {
                       selectedLocation.longitude
                     }
                   </strong>
-
                 </div>
 
                 <div>
-
                   <span
                     style={{
                       color:
@@ -2815,19 +2867,17 @@ function AdminDashboard({ admin }) {
                     }}
                   >
                     {selectedLocation.distance !==
-                    undefined &&
+                      null &&
                     selectedLocation.distance !==
-                    null
+                      undefined
                       ? `${Number(
                           selectedLocation.distance
                         ).toFixed(2)} meters`
                       : "Not available"}
                   </strong>
-
                 </div>
 
                 <div>
-
                   <span
                     style={{
                       color:
@@ -2849,7 +2899,7 @@ function AdminDashboard({ admin }) {
                         selectedLocation.status ===
                         "INSIDE_SCHOOL"
                           ? "#2e7d32"
-                          : "#c62828",
+                          : "#777",
                     }}
                   >
                     {selectedLocation.status ===
@@ -2860,7 +2910,6 @@ function AdminDashboard({ admin }) {
                       ? "✕ OUTSIDE SCHOOL"
                       : "UNKNOWN"}
                   </strong>
-
                 </div>
 
               </div>
@@ -2887,7 +2936,6 @@ function AdminDashboard({ admin }) {
               </h3>
 
               {locationLoading ? (
-
                 <p
                   style={{
                     color:
@@ -2896,9 +2944,7 @@ function AdminDashboard({ admin }) {
                 >
                   🔄 Finding place name...
                 </p>
-
               ) : (
-
                 <p
                   style={{
                     margin:
@@ -2910,7 +2956,6 @@ function AdminDashboard({ admin }) {
                   {placeName ||
                     "Place name not available"}
                 </p>
-
               )}
 
             </div>
@@ -2959,7 +3004,7 @@ function AdminDashboard({ admin }) {
 
             </div>
 
-            {/* OPEN MAP BUTTON */}
+            {/* BUTTONS */}
 
             <div
               style={{
@@ -3025,11 +3070,9 @@ function AdminDashboard({ admin }) {
           </div>
 
         </div>
-
       )}
 
     </div>
-
   );
 }
 

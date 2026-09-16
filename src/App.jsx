@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import {
   Routes,
@@ -10,7 +9,7 @@ import {
 import "./App.css";
 import Dashboard from "./Dashboard";
 import AdminDashboard from "./AdminDashboard";
-
+import { getEmployees } from "./services/api";
 
 /* =========================
    SCHOOL LOGO
@@ -21,34 +20,28 @@ function Logo() {
     <div className="school-header">
 
       <img
-        src="/LOGO.JPG"
+        src="/LOGO.jpg"
         alt="Alihsan Girls Secondary School Logo"
         className="school-logo"
       />
 
       <div className="school-name">
-
         <h1>AL-IHSAN GIRLS</h1>
-
         <h2>SECONDARY SCHOOL</h2>
-
       </div>
 
     </div>
   );
 }
 
-
 /* =========================
    HOME / ROLE SELECTION
 ========================= */
 
 function RoleSelection() {
-
   const navigate = useNavigate();
 
   return (
-
     <div className="page">
 
       <div className="role-card">
@@ -71,12 +64,9 @@ function RoleSelection() {
 
         </div>
 
-
         <div className="role-buttons">
 
-          {/* =========================
-              EMPLOYEE
-          ========================= */}
+          {/* EMPLOYEE */}
 
           <button
             className="role-button employee"
@@ -104,9 +94,7 @@ function RoleSelection() {
           </button>
 
 
-          {/* =========================
-              ADMINISTRATOR
-          ========================= */}
+          {/* ADMINISTRATOR */}
 
           <button
             className="role-button administrator"
@@ -135,7 +123,6 @@ function RoleSelection() {
 
         </div>
 
-
         <footer>
           © 2026 Alihsan Girls Secondary School
         </footer>
@@ -158,8 +145,14 @@ function EmployeeLogin() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+
+  /* =========================
+     HANDLE EMPLOYEE LOGIN
+  ========================= */
+
+  const handleLogin = async (e) => {
 
     e.preventDefault();
 
@@ -172,13 +165,132 @@ function EmployeeLogin() {
       return;
     }
 
+    try {
 
-    localStorage.setItem(
-      "employeeLoggedIn",
-      "true"
-    );
+      setLoading(true);
 
-    navigate("/employee-dashboard");
+      /*
+       * Get employees from backend
+       *
+       * GET:
+       * http://localhost:8080/api/employees
+       */
+
+      const employees = await getEmployees();
+
+
+      /*
+       * Find employee whose username
+       * and password match the login.
+       */
+
+      const employee = employees.find(
+        (item) =>
+          String(item.username).toLowerCase() ===
+            username.toLowerCase() &&
+          String(item.password) === password
+      );
+
+
+      /*
+       * No employee found
+       */
+
+      if (!employee) {
+
+        alert(
+          "Invalid username or password."
+        );
+
+        return;
+      }
+
+
+      /*
+       * Convert backend field names
+       * to frontend field names.
+       *
+       * Backend:
+       * employeeid
+       * firstname
+       * lastname
+       * hiredate
+       *
+       * Frontend Dashboard:
+       * employeeId
+       * firstName
+       * lastName
+       * hireDate
+       */
+
+      const employeeData = {
+
+        employeeId: employee.employeeid,
+
+        firstName: employee.firstname,
+
+        lastName: employee.lastname,
+
+        email: employee.email,
+
+        phone: employee.phone,
+
+        department: employee.department,
+
+        position: employee.position,
+
+        hireDate: employee.hiredate,
+
+        username: employee.username,
+
+        status: employee.status,
+
+      };
+
+
+      /*
+       * Save employee login status
+       */
+
+      localStorage.setItem(
+        "employeeLoggedIn",
+        "true"
+      );
+
+
+      /*
+       * Save employee information
+       */
+
+      localStorage.setItem(
+        "employeeData",
+        JSON.stringify(employeeData)
+      );
+
+
+      /*
+       * Open Employee Dashboard
+       */
+
+      navigate("/employee-dashboard");
+
+    } catch (error) {
+
+      console.error(
+        "Employee login error:",
+        error
+      );
+
+      alert(
+        "Unable to connect to the backend. Make sure Spring Boot is running on port 8080."
+      );
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
   };
 
 
@@ -207,7 +319,7 @@ function EmployeeLogin() {
 
           <input
             type="text"
-            placeholder="Enter employee ID"
+            placeholder="Enter username"
             value={username}
             onChange={(e) =>
               setUsername(e.target.value)
@@ -232,8 +344,13 @@ function EmployeeLogin() {
           <button
             type="submit"
             className="primary-button"
+            disabled={loading}
           >
-            Login
+
+            {loading
+              ? "Logging in..."
+              : "Login"}
+
           </button>
 
         </form>
@@ -271,7 +388,6 @@ function AdminLogin() {
 
     e.preventDefault();
 
-
     if (!username || !password) {
 
       alert(
@@ -283,10 +399,9 @@ function AdminLogin() {
 
 
     /*
-      Administrator information.
-      Backend authentication can be
-      connected later.
-    */
+     * Temporary administrator information.
+     * Backend authentication can be connected later.
+     */
 
     const adminData = {
 
@@ -306,19 +421,11 @@ function AdminLogin() {
     };
 
 
-    /*
-      Save administrator information.
-    */
-
     localStorage.setItem(
       "adminData",
       JSON.stringify(adminData)
     );
 
-
-    /*
-      Mark administrator as logged in.
-    */
 
     localStorage.setItem(
       "adminLoggedIn",
@@ -326,12 +433,8 @@ function AdminLogin() {
     );
 
 
-    /*
-      Go directly to
-      Administrator Dashboard.
-    */
-
     navigate("/admin/dashboard");
+
   };
 
 
@@ -409,252 +512,74 @@ function AdminLogin() {
 
 
 /* =========================
-   EMPLOYEE DASHBOARD
+   PROTECTED EMPLOYEE DASHBOARD
 ========================= */
 
-function EmployeeDashboard() {
+function EmployeeDashboardPage() {
 
-  const navigate = useNavigate();
+  /*
+   * Get employee information
+   * saved during login.
+   */
 
-  const [status, setStatus] =
-    useState("Not Checked In");
-
-  const [checkInTime, setCheckInTime] =
-    useState("--:--");
-
-  const [isScanning, setIsScanning] =
-    useState(false);
-
-
-  const logout = () => {
-
-    localStorage.removeItem(
-      "employeeLoggedIn"
+  const savedEmployee =
+    localStorage.getItem(
+      "employeeData"
     );
 
-    navigate("/");
-  };
+
+  const employee =
+    savedEmployee
+      ? JSON.parse(savedEmployee)
+      : null;
 
 
-  const handleBiometricScan =
-    async () => {
+  /*
+   * Protect Employee Dashboard.
+   */
 
-      setIsScanning(true);
+  if (
+    localStorage.getItem(
+      "employeeLoggedIn"
+    ) !== "true" ||
+    !employee
+  ) {
 
-      try {
+    return (
 
-        if (window.PublicKeyCredential) {
+      <Navigate
+        to="/employee-login"
+        replace
+      />
 
-          const challenge =
-            new Uint8Array(32);
-
-          window.crypto.getRandomValues(
-            challenge
-          );
-
-
-          await navigator.credentials.get({
-
-            publicKey: {
-
-              challenge: challenge,
-
-              timeout: 60000,
-
-              userVerification:
-                "preferred",
-
-            },
-
-          });
-
-        }
+    );
+  }
 
 
-        const currentTime =
-          new Date().toLocaleTimeString(
-            [],
-            {
-              hour: "2-digit",
-              minute: "2-digit",
-            }
-          );
-
-
-        setStatus(
-          "Checked In"
-        );
-
-        setCheckInTime(
-          currentTime
-        );
-
-
-        alert(
-          "Biometric verification successful! Attendance recorded."
-        );
-
-      } catch (error) {
-
-        console.error(
-          "Biometric scan error:",
-          error
-        );
-
-
-        const currentTime =
-          new Date().toLocaleTimeString(
-            [],
-            {
-              hour: "2-digit",
-              minute: "2-digit",
-            }
-          );
-
-
-        setStatus(
-          "Checked In"
-        );
-
-        setCheckInTime(
-          currentTime
-        );
-
-
-        alert(
-          "Attendance verified successfully!"
-        );
-
-      } finally {
-
-        setIsScanning(false);
-
-      }
-
-    };
-
+  /*
+   * Show the real employee dashboard
+   * and pass employee information.
+   */
 
   return (
 
-    <div className="dashboard">
+    <Dashboard
+      employee={employee}
+      onLogout={() => {
 
-      <header className="dashboard-header">
+        localStorage.removeItem(
+          "employeeLoggedIn"
+        );
 
-        <Logo />
+        localStorage.removeItem(
+          "employeeData"
+        );
 
-        <button
-          className="logout-button"
-          onClick={logout}
-        >
-          Logout
-        </button>
+        window.location.href = "/";
 
-      </header>
+      }}
+    />
 
-
-      <main className="dashboard-content">
-
-        <h1>
-          Employee Dashboard
-        </h1>
-
-        <p>
-          Welcome to Alihsan Girls Secondary
-          School Attendance System.
-        </p>
-
-
-        <div className="attendance-card">
-
-          <div
-            className="fingerprint"
-            onClick={handleBiometricScan}
-            style={{
-              cursor: "pointer"
-            }}
-          >
-            👆
-          </div>
-
-
-          <h2>
-            Biometric Attendance
-          </h2>
-
-
-          <p>
-            Place your registered fingerprint
-            on the biometric scanner.
-          </p>
-
-
-          <button
-            className="primary-button"
-            onClick={handleBiometricScan}
-            disabled={isScanning}
-          >
-
-            {isScanning
-              ? "Scanning..."
-              : "Scan Fingerprint"}
-
-          </button>
-
-        </div>
-
-
-        <div className="stats">
-
-          <div>
-
-            <h3>
-              Today's Status
-            </h3>
-
-            <strong
-              style={{
-                color:
-                  status === "Checked In"
-                    ? "#2e7d32"
-                    : "#d32f2f",
-              }}
-            >
-              {status}
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <h3>
-              Check In Time
-            </h3>
-
-            <strong>
-              {checkInTime}
-            </strong>
-
-          </div>
-
-
-          <div>
-
-            <h3>
-              Check Out Time
-            </h3>
-
-            <strong>
-              --:--
-            </strong>
-
-          </div>
-
-        </div>
-
-      </main>
-
-    </div>
   );
 }
 
@@ -666,9 +591,9 @@ function EmployeeDashboard() {
 function AdminDashboardPage() {
 
   /*
-    Get administrator information
-    from localStorage.
-  */
+   * Get administrator information
+   * from localStorage.
+   */
 
   const savedAdmin =
     localStorage.getItem(
@@ -683,8 +608,8 @@ function AdminDashboardPage() {
 
 
   /*
-    Protect administrator dashboard.
-  */
+   * Protect administrator dashboard.
+   */
 
   if (
     localStorage.getItem(
@@ -723,7 +648,6 @@ function App() {
 
     <Routes>
 
-
       {/* =========================
           ROLE SELECTION
       ========================= */}
@@ -755,19 +679,7 @@ function App() {
       <Route
         path="/employee-dashboard"
         element={
-
-          <Dashboard
-            onLogout={() => {
-
-              localStorage.removeItem(
-                "employeeLoggedIn"
-              );
-
-              window.location.href = "/";
-
-            }}
-          />
-
+          <EmployeeDashboardPage />
         }
       />
 
@@ -813,6 +725,7 @@ function App() {
     </Routes>
 
   );
+
 }
 
 

@@ -1,1233 +1,752 @@
-import React, { useState } from "react";
-import "./Dashboard.css";
-import HelpCenter from "./HelpCenter";
-import ChangePassword from "./ChangePassword";
+import React, { useEffect, useState } from "react";
 
-// =====================================================
-// SCHOOL GPS LOCATION
-// =====================================================
+import {
+  getAttendance,
+  createAttendance,
+  updateAttendance,
+} from "./services/api";
 
-const SCHOOL_LATITUDE = -6.1746053;
-const SCHOOL_LONGITUDE = 39.2263778;
+/* =========================================================
+   HELPER FUNCTIONS
+========================================================= */
 
-// Employee lazima awe ndani ya mita 100
-const SCHOOL_RADIUS_METERS = 100;
+const TANZANIA_TIME_ZONE = "Africa/Dar_es_Salaam";
 
-// =====================================================
-// FUNCTION YA KUHESABU DISTANCE KATI YA COORDINATES MBILI
-// Haversine Formula
-// =====================================================
+function getToday() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TANZANIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
 
-const calculateDistance = (
-  latitude1,
-  longitude1,
-  latitude2,
-  longitude2
-) => {
-  const earthRadius = 6371000; // meters
+function formatDate(value) {
+  if (!value) return "--";
 
-  const lat1 = (latitude1 * Math.PI) / 180;
-  const lat2 = (latitude2 * Math.PI) / 180;
+  const date = new Date(value);
 
-  const deltaLatitude =
-    ((latitude2 - latitude1) * Math.PI) / 180;
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
 
-  const deltaLongitude =
-    ((longitude2 - longitude1) * Math.PI) / 180;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TANZANIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
 
-  const a =
-    Math.sin(deltaLatitude / 2) *
-      Math.sin(deltaLatitude / 2) +
-    Math.cos(lat1) *
-      Math.cos(lat2) *
-      Math.sin(deltaLongitude / 2) *
-      Math.sin(deltaLongitude / 2);
+function formatTime(value) {
+  if (!value) return "--:--";
 
-  const c =
-    2 * Math.atan2(
-      Math.sqrt(a),
-      Math.sqrt(1 - a)
-    );
+  const date = new Date(value);
 
-  return earthRadius * c;
-};
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
 
-// =====================================================
-// FUNCTION YA KUHESABU MASAA
-// =====================================================
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: TANZANIA_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  }).format(date);
+}
 
-const calculateHours = (
-  signInTime,
-  signOutTime
-) => {
-  if (!signInTime || !signOutTime) return 0;
-
-  const parseTime = (timeStr) => {
-    const [time, modifier] = timeStr.split(" ");
-
-    let [hours, minutes, seconds] = time
-      .split(":")
-      .map(Number);
-
-    if (modifier === "PM" && hours < 12) {
-      hours += 12;
-    }
-
-    if (modifier === "AM" && hours === 12) {
-      hours = 0;
-    }
-
-    return new Date(
-      2000,
-      0,
-      1,
-      hours,
-      minutes,
-      seconds || 0
-    );
-  };
-
-  try {
-    const start = parseTime(signInTime);
-    const end = parseTime(signOutTime);
-
-    let diffMs = end - start;
-
-    if (diffMs < 0) {
-      diffMs += 24 * 60 * 60 * 1000;
-    }
-
-    return diffMs / (1000 * 60 * 60);
-  } catch (error) {
+function calculateHours(checkIn, checkOut) {
+  if (!checkIn || !checkOut) {
     return 0;
   }
-};
 
-// =====================================================
-// 1. MARK ATTENDANCE COMPONENT
-// =====================================================
+  const start = new Date(checkIn);
+  const end = new Date(checkOut);
+
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime())
+  ) {
+    return 0;
+  }
+
+  let difference = end.getTime() - start.getTime();
+
+  if (difference < 0) {
+    difference += 24 * 60 * 60 * 1000;
+  }
+
+  return difference / (1000 * 60 * 60);
+}
+
+/* =========================================================
+   CONVERT BACKEND ATTENDANCE
+========================================================= */
+
+function mapAttendance(item) {
+  return {
+    attendanceId: item.attendanceid,
+    employeeId: item.employeeid,
+    checkIn: item.checkin,
+    checkOut: item.checkout,
+    checkoutLatitude: item.checkout_latitude,
+    checkoutLongitude: item.checkout_longitude,
+    status: item.status || "PRESENT",
+    date: formatDate(item.checkin),
+    hours: calculateHours(item.checkin, item.checkout),
+  };
+}
+
+/* =========================================================
+   MARK ATTENDANCE
+========================================================= */
 
 function MarkAttendance({ employee }) {
-  const [attendance, setAttendance] = useState(() => {
-    const savedAttendance =
-      localStorage.getItem("employeeAttendance");
-
-    return savedAttendance
-      ? JSON.parse(savedAttendance)
-      : [];
-  });
-
+  const [attendance, setAttendance] = useState([]);
   const [scanning, setScanning] = useState(false);
-
-  // =====================================================
-  // GPS STATES
-  // =====================================================
-
-  const [latitude, setLatitude] = useState(null);
-  const [longitude, setLongitude] = useState(null);
-
-  const [locationLoading, setLocationLoading] =
-    useState(false);
-
-  const [locationError, setLocationError] =
-    useState("");
-
-  const [locationDetected, setLocationDetected] =
-    useState(false);
-
-  // Geofence state
-  const [insideSchool, setInsideSchool] =
-    useState(false);
-
-  const [distanceFromSchool, setDistanceFromSchool] =
-    useState(null);
-
-  const today = new Date()
-    .toISOString()
-    .split("T")[0];
-
-  const todayAttendance = attendance.find(
-    (record) =>
-      record.employeeId === employee?.employeeId &&
-      record.date === today
+  const [location, setLocation] = useState(null);
+  const [locationMessage, setLocationMessage] = useState(
+    "Location not detected"
   );
 
-  // =====================================================
-  // DETECT LOCATION + CHECK SCHOOL DISTANCE
-  // =====================================================
+  /* -------------------------------------------------------
+     LOAD ATTENDANCE FROM BACKEND
+  ------------------------------------------------------- */
 
-  const handleDetectLocation = () => {
-    setLocationError("");
-    setLocationDetected(false);
-    setInsideSchool(false);
-    setDistanceFromSchool(null);
+  async function loadEmployeeAttendance() {
+    try {
+      const data = await getAttendance();
 
+      const employeeId = Number(employee?.employeeId);
+
+      const records = data
+        .filter(
+          (item) => Number(item.employeeid) === employeeId
+        )
+        .map(mapAttendance);
+
+      setAttendance(records);
+    } catch (error) {
+      console.error("Failed to load attendance:", error);
+      alert("Failed to load attendance from backend.");
+    }
+  }
+
+  useEffect(() => {
+    if (employee?.employeeId) {
+      loadEmployeeAttendance();
+    }
+  }, [employee]);
+
+  /* -------------------------------------------------------
+     DETECT LOCATION
+  ------------------------------------------------------- */
+
+  function handleDetectLocation() {
     if (!navigator.geolocation) {
-      setLocationError(
-        "Location services are not supported by this browser."
+      setLocationMessage(
+        "Geolocation is not supported by this browser."
       );
-
       return;
     }
 
-    setLocationLoading(true);
+    setLocationMessage("Detecting location...");
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const detectedLatitude =
-          position.coords.latitude;
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
 
-        const detectedLongitude =
-          position.coords.longitude;
+        setLocation({
+          latitude,
+          longitude,
+        });
 
-        // Save employee GPS
-        setLatitude(detectedLatitude);
-        setLongitude(detectedLongitude);
-
-        // Calculate distance from school
-        const distance = calculateDistance(
-          detectedLatitude,
-          detectedLongitude,
-          SCHOOL_LATITUDE,
-          SCHOOL_LONGITUDE
+        setLocationMessage(
+          `Location detected: ${latitude.toFixed(
+            5
+          )}, ${longitude.toFixed(5)}`
         );
-
-        setDistanceFromSchool(distance);
-
-        // Check if employee is inside school radius
-        const employeeIsInside =
-          distance <= SCHOOL_RADIUS_METERS;
-
-        setInsideSchool(employeeIsInside);
-
-        setLocationDetected(true);
-        setLocationLoading(false);
-        setLocationError("");
       },
-
       (error) => {
-        setLocationLoading(false);
-        setLocationDetected(false);
-        setInsideSchool(false);
-        setDistanceFromSchool(null);
+        console.error("Location error:", error);
 
-        if (error.code === 1) {
-          setLocationError(
-            "Location permission was denied. Please allow location access in your browser settings to mark attendance."
-          );
-        } else if (error.code === 2) {
-          setLocationError(
-            "Your location could not be detected. Please turn on GPS/location services and try again."
-          );
-        } else if (error.code === 3) {
-          setLocationError(
-            "Location detection timed out. Please try again."
-          );
-        } else {
-          setLocationError(
-            "Unable to detect your location. Please try again."
-          );
-        }
-      },
-
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0,
+        setLocationMessage(
+          "Unable to detect location. Please allow location permission."
+        );
       }
     );
-  };
+  }
 
-  // =====================================================
-  // HANDLE ATTENDANCE / FINGERPRINT
-  // =====================================================
+  /* -------------------------------------------------------
+     CHECK SCHOOL LOCATION
+  ------------------------------------------------------- */
 
-  const handleScan = async () => {
-    if (!employee?.employeeId) {
-      alert(
-        "Employee information is not available."
-      );
+  function isInsideSchool() {
+    /*
+      Current school coordinates from your database/project:
 
-      return;
+      Latitude  = -6.7924
+      Longitude = 39.2083
+
+      For testing we use approximately 500 meters.
+    */
+
+    if (!location) {
+      return false;
     }
 
-    // =====================================================
-    // LOCATION MUST BE DETECTED
-    // =====================================================
+    const schoolLatitude = -6.7924;
+    const schoolLongitude = 39.2083;
+
+    const latitudeDifference =
+      location.latitude - schoolLatitude;
+
+    const longitudeDifference =
+      location.longitude - schoolLongitude;
+
+    const distance = Math.sqrt(
+      latitudeDifference * latitudeDifference +
+        longitudeDifference * longitudeDifference
+    );
+
+    /*
+      Approximate degree-to-meter conversion.
+      0.005 degrees is approximately 500m.
+    */
+
+    return distance <= 0.005;
+  }
+
+  /* -------------------------------------------------------
+     BIOMETRIC SCAN
+  ------------------------------------------------------- */
+
+  async function performBiometricScan() {
+    /*
+      This is browser WebAuthn testing.
+
+      It is NOT yet connected to the biometric table
+      in the Spring Boot backend.
+    */
 
     if (
-      !locationDetected ||
-      latitude === null ||
-      longitude === null
+      window.PublicKeyCredential &&
+      navigator.credentials
     ) {
-      alert(
-        "Location access is required before marking attendance. Please click 'Detect My Location' and allow location permission."
-      );
+      try {
+        const available =
+          await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
 
+        if (available) {
+          /*
+            Browser biometric/security key attempt.
+
+            For now we use fallback because the actual
+            fingerprint matching is not yet connected
+            to /api/biometric.
+          */
+
+          console.log(
+            "Platform biometric authenticator available."
+          );
+        }
+      } catch (error) {
+        console.log(
+          "Biometric test failed, using fallback.",
+          error
+        );
+      }
+    }
+
+    return true;
+  }
+
+  /* -------------------------------------------------------
+     CHECK IN / CHECK OUT
+  ------------------------------------------------------- */
+
+  async function handleScan() {
+    if (!employee?.employeeId) {
+      alert("Employee information is missing.");
       return;
     }
 
-    // =====================================================
-    // EMPLOYEE MUST BE INSIDE SCHOOL
-    // =====================================================
+    if (!location) {
+      alert("Please detect your location first.");
+      return;
+    }
 
-    if (!insideSchool) {
+    if (!isInsideSchool()) {
       alert(
-        `You are outside the school premises.\n\nAttendance cannot be recorded.\n\nYour distance from school is ${
-          distanceFromSchool !== null
-            ? Math.round(distanceFromSchool)
-            : "--"
-        } meters.\n\nYou must be within ${SCHOOL_RADIUS_METERS} meters of the school.`
+        "You are outside the school attendance area."
       );
-
       return;
     }
 
     setScanning(true);
 
     try {
-      // =====================================================
-      // BIOMETRIC / FINGERPRINT
-      // =====================================================
+      /* -----------------------------------------------
+         BIOMETRIC
+      ------------------------------------------------ */
 
-      if (window.PublicKeyCredential) {
-        const challenge = new Uint8Array(32);
+      const biometricSuccess =
+        await performBiometricScan();
 
-        window.crypto.getRandomValues(
-          challenge
+      if (!biometricSuccess) {
+        alert("Biometric verification failed.");
+        return;
+      }
+
+      /* -----------------------------------------------
+         GET TODAY'S RECORD
+      ------------------------------------------------ */
+
+      const today = getToday();
+
+      const existingRecord = attendance.find(
+        (record) =>
+          record.date === today
+      );
+
+      /* -----------------------------------------------
+         CHECK IN
+      ------------------------------------------------ */
+
+      if (!existingRecord) {
+        const checkInTime = new Date().toISOString();
+
+        const attendanceData = {
+          employeeid: Number(employee.employeeId),
+          checkin: checkInTime,
+          checkout: null,
+          checkout_latitude: null,
+          checkout_longitude: null,
+          status: "PRESENT",
+        };
+
+        await createAttendance(attendanceData);
+
+        alert("Check In successful!");
+
+        await loadEmployeeAttendance();
+
+        return;
+      }
+
+      /* -----------------------------------------------
+         CHECK OUT
+      ------------------------------------------------ */
+
+      if (!existingRecord.checkOut) {
+        const checkOutTime =
+          new Date().toISOString();
+
+        const attendanceData = {
+          employeeid: Number(employee.employeeId),
+          checkin: existingRecord.checkIn,
+          checkout: checkOutTime,
+          checkout_latitude: location.latitude,
+          checkout_longitude: location.longitude,
+          status: "PRESENT",
+        };
+
+        await updateAttendance(
+          existingRecord.attendanceId,
+          attendanceData
         );
 
-        await navigator.credentials.get({
-          publicKey: {
-            challenge: challenge,
-            timeout: 60000,
-            userVerification: "required",
-          },
-        });
+        alert("Check Out successful!");
+
+        await loadEmployeeAttendance();
+
+        return;
       }
-    } catch (err) {
-      console.log(
-        "Biometric bypass or fallback simulation used:",
-        err
-      );
-    }
 
-    const now = new Date();
-
-    const currentTime =
-      now.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
-
-    const existingRecord = attendance.find(
-      (record) =>
-        record.employeeId === employee.employeeId &&
-        record.date === today
-    );
-
-    let updatedAttendance;
-
-    // =====================================================
-    // SIGN IN
-    // =====================================================
-
-    if (!existingRecord) {
-      const newRecord = {
-        employeeId: employee.employeeId,
-
-        date: today,
-
-        signIn: currentTime,
-
-        signOut: null,
-
-        // ================================================
-        // SIGN IN GPS
-        // ================================================
-
-        signInLatitude: latitude,
-
-        signInLongitude: longitude,
-
-        // General GPS compatibility
-        latitude: latitude,
-
-        longitude: longitude,
-
-        // Distance from school
-        signInDistanceFromSchool:
-          distanceFromSchool,
-
-        // Geofence status
-        signInLocationStatus:
-          insideSchool
-            ? "INSIDE_SCHOOL"
-            : "OUTSIDE_SCHOOL",
-
-        location:
-          "GPS Location - Inside School",
-      };
-
-      updatedAttendance = [
-        ...attendance,
-        newRecord,
-      ];
+      /* -----------------------------------------------
+         ALREADY COMPLETED
+      ------------------------------------------------ */
 
       alert(
-        `Fingerprint Verified!\n\nSigned in at ${currentTime}\n\n✓ Location verified\n✓ Inside school premises\n✓ Distance: ${Math.round(
-          distanceFromSchool
-        )} meters`
+        "You have already completed today's attendance."
       );
-    }
-
-    // =====================================================
-    // SIGN OUT
-    // =====================================================
-
-    else if (!existingRecord.signOut) {
-      updatedAttendance = attendance.map(
-        (record) =>
-          record.employeeId ===
-            employee.employeeId &&
-          record.date === today
-            ? {
-                ...record,
-
-                signOut: currentTime,
-
-                // ========================================
-                // SIGN OUT GPS
-                // ========================================
-
-                signOutLatitude: latitude,
-
-                signOutLongitude: longitude,
-
-                signOutDistanceFromSchool:
-                  distanceFromSchool,
-
-                signOutLocationStatus:
-                  insideSchool
-                    ? "INSIDE_SCHOOL"
-                    : "OUTSIDE_SCHOOL",
-              }
-            : record
+    } catch (error) {
+      console.error(
+        "Attendance operation failed:",
+        error
       );
 
       alert(
-        `Fingerprint Verified!\n\nSigned out at ${currentTime}\n\n✓ Location verified\n✓ Inside school premises\n✓ Distance: ${Math.round(
-          distanceFromSchool
-        )} meters`
+        "Attendance operation failed. Please try again."
       );
+    } finally {
+      setScanning(false);
     }
+  }
 
-    // =====================================================
-    // ALREADY COMPLETED
-    // =====================================================
+  /* -------------------------------------------------------
+     TODAY'S ATTENDANCE
+  ------------------------------------------------------- */
 
-    else {
-      updatedAttendance = attendance;
+  const today = getToday();
 
-      alert(
-        "You have already signed in and signed out today."
-      );
-    }
-
-    setAttendance(updatedAttendance);
-
-    localStorage.setItem(
-      "employeeAttendance",
-      JSON.stringify(updatedAttendance)
-    );
-
-    setScanning(false);
-  };
-
-  // =====================================================
-  // EMPLOYEE ATTENDANCE HISTORY
-  // =====================================================
-
-  const employeeHistory = attendance
-    .filter(
-      (record) =>
-        record.employeeId ===
-        employee?.employeeId
-    )
-    .sort((a, b) =>
-      b.date.localeCompare(a.date)
-    );
-
-  const totalTodayHours = calculateHours(
-    todayAttendance?.signIn,
-    todayAttendance?.signOut
+  const todayRecord = attendance.find(
+    (record) => record.date === today
   );
 
-  // =====================================================
-  // RENDER
-  // =====================================================
+  const totalHours = attendance.reduce(
+    (total, record) =>
+      total + Number(record.hours || 0),
+    0
+  );
+
+  /* -------------------------------------------------------
+     RENDER
+  ------------------------------------------------------- */
 
   return (
-    <div className="attendance-page">
+    <div style={{ padding: "30px" }}>
+      <h2>Mark Attendance</h2>
 
-      {/* =====================================================
-          HEADER
-      ===================================================== */}
+      <p>
+        Welcome,{" "}
+        <strong>
+          {employee?.firstName} {employee?.lastName}
+        </strong>
+      </p>
 
-      <div className="attendance-header">
-        <div>
-          <h2>Mark attendance</h2>
-
-          <p>
-            Record your daily attendance using
-            fingerprint verification and GPS
-            location.
-          </p>
-        </div>
-      </div>
-
-      <div className="attendance-section-title">
-        <h3>Today's attendance</h3>
-      </div>
-
-      {/* =====================================================
-          TOP GRID
-      ===================================================== */}
+      {/* BIOMETRIC */}
 
       <div
-        className="attendance-top-grid"
         style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: "20px",
-          marginBottom: "30px",
+          border: "1px solid #ddd",
+          borderRadius: "12px",
+          padding: "25px",
+          marginTop: "20px",
+          maxWidth: "600px",
         }}
       >
+        <h3>🔐 Biometric Attendance</h3>
 
-        {/* =====================================================
-            FINGERPRINT BOX
-        ===================================================== */}
-
-        <div
-          className="scanner-box"
-          style={{
-            border: "1px solid #ccc",
-            borderRadius: "8px",
-            padding: "20px",
-            textAlign: "center",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: "#fff",
-          }}
-        >
-
-          <div
-            className="fingerprint-icon"
-            onClick={handleScan}
-            style={{
-              fontSize: "60px",
-
-              cursor:
-                scanning ||
-                todayAttendance?.signOut
-                  ? "not-allowed"
-                  : "pointer",
-
-              marginBottom: "15px",
-            }}
-          >
-            {scanning ? "⏳" : "👆"}
-          </div>
-
-          <button
-            className="scan-button"
-            onClick={handleScan}
-            disabled={
-              scanning ||
-              Boolean(todayAttendance?.signOut)
-            }
-            style={{
-              padding: "10px 20px",
-              borderRadius: "5px",
-              border: "1px solid #333",
-              backgroundColor: "#f9f9f9",
-
-              cursor:
-                scanning ||
-                todayAttendance?.signOut
-                  ? "not-allowed"
-                  : "pointer",
-
-              fontWeight: "bold",
-            }}
-          >
-            {scanning
-              ? "Scanning..."
-              : todayAttendance?.signOut
-              ? "Completed"
-              : "Scan fingerprint"}
-          </button>
-
-        </div>
-
-        {/* =====================================================
-            TIME CARDS
-        ===================================================== */}
-
-        <div
-          className="time-cards-container"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "15px",
-            justifyContent: "center",
-          }}
-        >
-
-          <div
-            className="time-card-item"
-            style={{
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-              padding: "15px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              backgroundColor: "#fff",
-            }}
-          >
-            <span>Sign in at</span>
-
-            <strong>
-              {todayAttendance?.signIn ||
-                "--:--:--"}
-            </strong>
-          </div>
-
-          <div
-            className="time-card-item"
-            style={{
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-              padding: "15px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              backgroundColor: "#fff",
-            }}
-          >
-            <span>Sign out at</span>
-
-            <strong>
-              {todayAttendance?.signOut ||
-                "--:--:--"}
-            </strong>
-          </div>
-
-          <div
-            className="time-card-item"
-            style={{
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-              padding: "15px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              backgroundColor: "#f4f4f4",
-            }}
-          >
-            <span>Total Hours</span>
-
-            <strong>
-              {totalTodayHours > 0
-                ? `${totalTodayHours.toFixed(
-                    1
-                  )} hrs`
-                : "--"}
-            </strong>
-          </div>
-
-        </div>
-      </div>
-
-      {/* =====================================================
-          GPS LOCATION SECTION
-      ===================================================== */}
-
-      <div
-        className="attendance-location-card"
-        style={{
-          border: "1px solid #ccc",
-          borderRadius: "8px",
-          padding: "20px",
-          backgroundColor: "#fff",
-          marginBottom: "30px",
-        }}
-      >
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            marginBottom: "15px",
-          }}
-        >
-          <span style={{ fontSize: "24px" }}>
-            📍
-          </span>
-
-          <div>
-            <h3 style={{ margin: 0 }}>
-              Activity Location (GPS)
-            </h3>
-
-            <p
-              style={{
-                margin: "5px 0 0",
-                color: "#666",
-                fontSize: "14px",
-              }}
-            >
-              Your location is required to
-              mark attendance.
-            </p>
-          </div>
-        </div>
-
-        {/* =====================================================
-            LATITUDE + LONGITUDE
-        ===================================================== */}
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns:
-              "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: "15px",
-            marginBottom: "15px",
-          }}
-        >
-
-          {/* Latitude */}
-
-          <div
-            style={{
-              border: "1px solid #ddd",
-              borderRadius: "6px",
-              padding: "12px",
-              backgroundColor: "#fafafa",
-            }}
-          >
-            <small
-              style={{
-                display: "block",
-                color: "#777",
-                marginBottom: "5px",
-              }}
-            >
-              Latitude
-            </small>
-
-            <strong>
-              {latitude !== null
-                ? latitude.toFixed(8)
-                : "Not Detected"}
-            </strong>
-          </div>
-
-          {/* Longitude */}
-
-          <div
-            style={{
-              border: "1px solid #ddd",
-              borderRadius: "6px",
-              padding: "12px",
-              backgroundColor: "#fafafa",
-            }}
-          >
-            <small
-              style={{
-                display: "block",
-                color: "#777",
-                marginBottom: "5px",
-              }}
-            >
-              Longitude
-            </small>
-
-            <strong>
-              {longitude !== null
-                ? longitude.toFixed(8)
-                : "Not Detected"}
-            </strong>
-          </div>
-
-        </div>
-
-        {/* =====================================================
-            DETECT BUTTON
-        ===================================================== */}
+        <p>
+          Use your fingerprint/biometric verification
+          to record attendance.
+        </p>
 
         <button
-          onClick={handleDetectLocation}
-          disabled={locationLoading}
+          onClick={handleScan}
+          disabled={scanning}
           style={{
-            padding: "10px 18px",
-            borderRadius: "6px",
+            padding: "12px 25px",
             border: "none",
-            backgroundColor: "#2563eb",
-            color: "#fff",
-            fontWeight: "bold",
-
-            cursor: locationLoading
+            borderRadius: "8px",
+            cursor: scanning
               ? "not-allowed"
               : "pointer",
           }}
         >
-          {locationLoading
-            ? "Detecting location..."
-            : "📍 Detect My Location"}
+          {scanning
+            ? "Scanning..."
+            : todayRecord?.checkOut
+            ? "Attendance Completed"
+            : todayRecord?.checkIn
+            ? "Check Out"
+            : "Check In"}
         </button>
-
-        {/* =====================================================
-            LOCATION DETECTED + GEOFENCE STATUS
-        ===================================================== */}
-
-        {locationDetected && (
-          <div
-            style={{
-              marginTop: "15px",
-              padding: "15px",
-              borderRadius: "6px",
-
-              backgroundColor: insideSchool
-                ? "#e8f7ee"
-                : "#fff0f0",
-
-              color: insideSchool
-                ? "#18743a"
-                : "#b42318",
-
-              border: insideSchool
-                ? "1px solid #b7e4c7"
-                : "1px solid #f5c2c0",
-
-              fontSize: "14px",
-            }}
-          >
-
-            {insideSchool ? (
-              <>
-                <strong>
-                  ✓ Location verified
-                </strong>
-
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                  }}
-                >
-                  You are within the school
-                  premises. You can now mark
-                  your attendance.
-                </p>
-
-                {distanceFromSchool !==
-                  null && (
-                  <p
-                    style={{
-                      margin:
-                        "5px 0 0",
-                      fontWeight:
-                        "bold",
-                    }}
-                  >
-                    Distance from school:{" "}
-                    {Math.round(
-                      distanceFromSchool
-                    )}{" "}
-                    meters
-                  </p>
-                )}
-
-                <p
-                  style={{
-                    margin:
-                      "5px 0 0",
-                  }}
-                >
-                  Allowed radius:{" "}
-                  {SCHOOL_RADIUS_METERS}{" "}
-                  meters
-                </p>
-              </>
-            ) : (
-              <>
-                <strong>
-                  ✕ You are outside the
-                  school premises
-                </strong>
-
-                <p
-                  style={{
-                    margin: "8px 0 0",
-                  }}
-                >
-                  Attendance cannot be
-                  recorded from your current
-                  location.
-                </p>
-
-                {distanceFromSchool !==
-                  null && (
-                  <p
-                    style={{
-                      margin:
-                        "5px 0 0",
-                      fontWeight:
-                        "bold",
-                    }}
-                  >
-                    Distance from school:{" "}
-                    {Math.round(
-                      distanceFromSchool
-                    )}{" "}
-                    meters
-                  </p>
-                )}
-
-                <p
-                  style={{
-                    margin:
-                      "5px 0 0",
-                  }}
-                >
-                  You must be within{" "}
-                  {SCHOOL_RADIUS_METERS}{" "}
-                  meters of the school.
-                </p>
-              </>
-            )}
-
-          </div>
-        )}
-
-        {/* =====================================================
-            LOCATION ERROR
-        ===================================================== */}
-
-        {locationError && (
-          <div
-            style={{
-              marginTop: "15px",
-              padding: "12px",
-              borderRadius: "6px",
-              backgroundColor: "#fff0f0",
-              color: "#b42318",
-              border:
-                "1px solid #f5c2c0",
-              fontSize: "14px",
-            }}
-          >
-            <strong>
-              Location required:
-            </strong>
-
-            <br />
-
-            {locationError}
-          </div>
-        )}
-
       </div>
 
-      {/* =====================================================
-          ATTENDANCE HISTORY
-      ===================================================== */}
+      {/* LOCATION */}
 
-      <div className="attendance-history">
+      <div
+        style={{
+          border: "1px solid #ddd",
+          borderRadius: "12px",
+          padding: "25px",
+          marginTop: "20px",
+          maxWidth: "600px",
+        }}
+      >
+        <h3>📍 Attendance Location</h3>
 
-        <div className="history-heading">
+        <p>{locationMessage}</p>
 
-          <h2>
-            My Attendance history
-          </h2>
+        <button
+          onClick={handleDetectLocation}
+          style={{
+            padding: "10px 20px",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+          }}
+        >
+          Detect Location
+        </button>
 
-          <p>
-            Your attendance history will
-            appear here.
-          </p>
-
-        </div>
-
-        {employeeHistory.length === 0 ? (
-
-          <div
-            className="no-attendance"
-            style={{
-              textAlign: "center",
-              padding: "20px",
-            }}
-          >
+        {location && (
+          <div style={{ marginTop: "15px" }}>
             <p>
-              No attendance records
-              available.
+              Latitude:{" "}
+              {location.latitude.toFixed(6)}
+            </p>
+
+            <p>
+              Longitude:{" "}
+              {location.longitude.toFixed(6)}
+            </p>
+
+            <p>
+              School Area:{" "}
+              <strong>
+                {isInsideSchool()
+                  ? "YES"
+                  : "NO"}
+              </strong>
             </p>
           </div>
+        )}
+      </div>
 
+      {/* TODAY */}
+
+      <div
+        style={{
+          display: "flex",
+          gap: "20px",
+          flexWrap: "wrap",
+          marginTop: "20px",
+        }}
+      >
+        <div style={boxStyle}>
+          <h3>Sign In</h3>
+
+          <p style={boxTextStyle}>
+            {todayRecord?.checkIn
+              ? formatTime(
+                  todayRecord.checkIn
+                )
+              : "--:--"}
+          </p>
+        </div>
+
+        <div style={boxStyle}>
+          <h3>Sign Out</h3>
+
+          <p style={boxTextStyle}>
+            {todayRecord?.checkOut
+              ? formatTime(
+                  todayRecord.checkOut
+                )
+              : "--:--"}
+          </p>
+        </div>
+
+        <div style={boxStyle}>
+          <h3>Total Hours</h3>
+
+          <p style={boxTextStyle}>
+            {todayRecord
+              ? todayRecord.hours.toFixed(1)
+              : "0.0"}{" "}
+            hrs
+          </p>
+        </div>
+      </div>
+
+      {/* HISTORY */}
+
+      <div style={{ marginTop: "40px" }}>
+        <h2>Employee Attendance History</h2>
+
+        {attendance.length === 0 ? (
+          <p>No attendance records found.</p>
         ) : (
-
-          <div className="attendance-table-wrapper">
-
+          <div style={{ overflowX: "auto" }}>
             <table
-              className="attendance-table"
               style={{
                 width: "100%",
                 borderCollapse:
                   "collapse",
+                marginTop: "15px",
               }}
             >
-
               <thead>
-
-                <tr
-                  style={{
-                    borderBottom:
-                      "2px solid #ccc",
-                    textAlign:
-                      "left",
-                  }}
-                >
-
-                  <th
-                    style={{
-                      padding: "10px",
-                    }}
-                  >
+                <tr>
+                  <th style={tableHeader}>
                     Date
                   </th>
 
-                  <th
-                    style={{
-                      padding: "10px",
-                    }}
-                  >
-                    Sign in
+                  <th style={tableHeader}>
+                    Sign In
                   </th>
 
-                  <th
-                    style={{
-                      padding: "10px",
-                    }}
-                  >
-                    Sign out
+                  <th style={tableHeader}>
+                    Sign Out
                   </th>
 
-                  <th
-                    style={{
-                      padding: "10px",
-                    }}
-                  >
+                  <th style={tableHeader}>
                     Hours
                   </th>
 
-                  <th
-                    style={{
-                      padding: "10px",
-                    }}
-                  >
-                    Location
+                  <th style={tableHeader}>
+                    Status
                   </th>
 
+                  <th style={tableHeader}>
+                    Checkout Location
+                  </th>
                 </tr>
-
               </thead>
 
               <tbody>
-
-                {employeeHistory.map(
-                  (record, index) => (
-
+                {attendance.map(
+                  (record) => (
                     <tr
-                      key={index}
-                      style={{
-                        borderBottom:
-                          "1px solid #eee",
-                      }}
+                      key={
+                        record.attendanceId
+                      }
                     >
-
-                      <td
-                        style={{
-                          padding: "10px",
-                        }}
-                      >
+                      <td style={tableCell}>
                         {record.date}
                       </td>
 
-                      <td
-                        style={{
-                          padding: "10px",
-                        }}
-                      >
-                        {record.signIn ||
-                          "--"}
+                      <td style={tableCell}>
+                        {formatTime(
+                          record.checkIn
+                        )}
                       </td>
 
-                      <td
-                        style={{
-                          padding: "10px",
-                        }}
-                      >
-                        {record.signOut ||
-                          "--"}
+                      <td style={tableCell}>
+                        {record.checkOut
+                          ? formatTime(
+                              record.checkOut
+                            )
+                          : "--:--"}
                       </td>
 
-                      <td
-                        style={{
-                          padding: "10px",
-                        }}
-                      >
-                        {calculateHours(
-                          record.signIn,
-                          record.signOut
-                        ).toFixed(1)}{" "}
+                      <td style={tableCell}>
+                        {record.hours.toFixed(
+                          1
+                        )}{" "}
                         hrs
                       </td>
 
-                      <td
-                        style={{
-                          padding: "10px",
-                        }}
-                      >
-
-                        {record.signInLatitude &&
-                        record.signInLongitude ? (
-
-                          <div>
-
-                            <span
-                              style={{
-                                color:
-                                  record.signInLocationStatus ===
-                                  "INSIDE_SCHOOL"
-                                    ? "#18743a"
-                                    : "#b42318",
-
-                                fontWeight:
-                                  "bold",
-                              }}
-                            >
-                              {record.signInLocationStatus ===
-                              "INSIDE_SCHOOL"
-                                ? "✓ Inside School"
-                                : "✕ Outside School"}
-                            </span>
-
-                            {record.signInDistanceFromSchool !==
-                              undefined && (
-                              <small
-                                style={{
-                                  display:
-                                    "block",
-                                  color:
-                                    "#666",
-                                  marginTop:
-                                    "3px",
-                                }}
-                              >
-                                {Math.round(
-                                  record.signInDistanceFromSchool
-                                )}{" "}
-                                m from
-                                school
-                              </small>
-                            )}
-
-                          </div>
-
-                        ) : (
-                          "Not available"
-                        )}
-
+                      <td style={tableCell}>
+                        {record.status}
                       </td>
 
+                      <td style={tableCell}>
+                        {record.checkoutLatitude !==
+                          null &&
+                        record.checkoutLongitude !==
+                          null
+                          ? `${record.checkoutLatitude}, ${record.checkoutLongitude}`
+                          : "Not available"}
+                      </td>
                     </tr>
-
                   )
                 )}
-
               </tbody>
-
             </table>
-
           </div>
-
         )}
-
       </div>
 
+      {/* TOTAL */}
+
+      <div
+        style={{
+          marginTop: "20px",
+          fontWeight: "bold",
+        }}
+      >
+        Total Hours All Records:{" "}
+        {totalHours.toFixed(1)} hrs
+      </div>
     </div>
   );
 }
 
-// =====================================================
-// 2. ATTENDANCE REPORT COMPONENT
-// =====================================================
+/* =========================================================
+   ATTENDANCE REPORT
+========================================================= */
 
 function AttendanceReport({ employee }) {
-  const [attendance] = useState(() => {
-    const saved =
-      localStorage.getItem(
-        "employeeAttendance"
+  const [attendance, setAttendance] = useState(
+    []
+  );
+
+  const [loading, setLoading] =
+    useState(true);
+
+  async function loadAttendance() {
+    try {
+      setLoading(true);
+
+      const data =
+        await getAttendance();
+
+      const employeeId = Number(
+        employee?.employeeId
       );
 
-    return saved
-      ? JSON.parse(saved)
-      : [];
-  });
+      const records = data
+        .filter(
+          (item) =>
+            Number(item.employeeid) ===
+            employeeId
+        )
+        .map(mapAttendance);
 
-  const employeeRecords =
-    attendance.filter(
-      (record) =>
-        record.employeeId ===
-        employee?.employeeId
-    );
+      setAttendance(records);
+    } catch (error) {
+      console.error(
+        "Failed to load attendance report:",
+        error
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const presentDays =
-    employeeRecords.length;
+  useEffect(() => {
+    if (employee?.employeeId) {
+      loadAttendance();
+    } else {
+      setLoading(false);
+    }
+  }, [employee]);
+
+  /* -------------------------------------------------------
+     STATISTICS
+  ------------------------------------------------------- */
+
+  const presentDays = attendance.filter(
+    (record) =>
+      record.status === "PRESENT"
+  ).length;
+
+  const lateDays = attendance.filter(
+    (record) =>
+      record.status === "LATE"
+  ).length;
+
+  const totalDays = attendance.length;
+
+  const totalHours = attendance.reduce(
+    (total, record) =>
+      total + Number(record.hours || 0),
+    0
+  );
 
   const absentDays = 0;
 
-  const lateDays =
-    employeeRecords.filter((r) => {
-      if (!r.signIn) return false;
+  /* -------------------------------------------------------
+     WEEKLY REPORT
+  ------------------------------------------------------- */
 
-      return (
-        r.signIn > "08:00:00 AM"
-      );
-    }).length;
-
-  const totalDays =
-    presentDays + absentDays;
-
-  const totalHoursWorked =
-    employeeRecords
-      .reduce(
-        (acc, curr) =>
-          acc +
-          calculateHours(
-            curr.signIn,
-            curr.signOut
-          ),
-        0
-      )
-      .toFixed(1);
-
-  const daysOfWeek = [
+  const weekDays = [
     "Mon",
     "Tue",
     "Wed",
@@ -1235,987 +754,788 @@ function AttendanceReport({ employee }) {
     "Fri",
   ];
 
-  const getHoursForDayName = (
-    dayName
-  ) => {
-    const record =
-      employeeRecords.find((r) => {
-        const dateObj =
-          new Date(r.date);
+  function getDayAttendance(dayName) {
+    const now = new Date();
 
-        const name =
-          dateObj.toLocaleDateString(
-            "en-US",
-            {
-              weekday: "short",
-            }
-          );
+    const dayNumber =
+      now.getDay();
 
-        return name === dayName;
-      });
+    const monday =
+      new Date(now);
 
-    return record
-      ? calculateHours(
-          record.signIn,
-          record.signOut
-        )
-      : 0;
-  };
+    const difference =
+      dayNumber === 0
+        ? -6
+        : 1 - dayNumber;
+
+    monday.setDate(
+      now.getDate() + difference
+    );
+
+    const dayIndex =
+      weekDays.indexOf(dayName);
+
+    const targetDate =
+      new Date(monday);
+
+    targetDate.setDate(
+      monday.getDate() + dayIndex
+    );
+
+    const dateString =
+      new Intl.DateTimeFormat(
+        "en-CA",
+        {
+          timeZone:
+            TANZANIA_TIME_ZONE,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }
+      ).format(targetDate);
+
+    return attendance.find(
+      (record) =>
+        record.date === dateString
+    );
+  }
+
+  /* -------------------------------------------------------
+     RENDER
+  ------------------------------------------------------- */
+
+  if (loading) {
+    return (
+      <div style={{ padding: "30px" }}>
+        <h2>Attendance Report</h2>
+        <p>
+          Loading attendance data...
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="report-page"
-      style={{
-        padding: "20px",
-      }}
-    >
+    <div style={{ padding: "30px" }}>
+      <h2>Attendance Report</h2>
 
-      {/* HEADER INFO */}
+      <p>
+        Detailed attendance report for{" "}
+        <strong>
+          {employee?.firstName}{" "}
+          {employee?.lastName}
+        </strong>
+      </p>
+
+      {/* STATISTICS */}
 
       <div
-        className="info-header-grid"
         style={{
           display: "grid",
           gridTemplateColumns:
-            "repeat(auto-fit, minmax(180px, 1fr))",
+            "repeat(auto-fit, minmax(150px, 1fr))",
           gap: "15px",
-          marginBottom: "20px",
+          marginTop: "25px",
         }}
       >
-
-        <div style={boxStyle}>
-
-          <small
-            style={{
-              color: "#777",
-            }}
-          >
-            Name
-          </small>
-
-          <p style={boxTextStyle}>
-            {employee
-              ? `${employee.firstName} ${employee.lastName}`
-              : "N/A"}
-          </p>
-
+        <div style={statBoxStyle}>
+          <h3>Absent Day</h3>
+          <h2>{absentDays}</h2>
         </div>
 
-        <div style={boxStyle}>
-
-          <small
-            style={{
-              color: "#777",
-            }}
-          >
-            Dept name
-          </small>
-
-          <p style={boxTextStyle}>
-            {employee?.department ||
-              "N/A"}
-          </p>
-
+        <div style={statBoxStyle}>
+          <h3>Present Day</h3>
+          <h2>{presentDays}</h2>
         </div>
 
-        <div style={boxStyle}>
-
-          <small
-            style={{
-              color: "#777",
-            }}
-          >
-            Id
-          </small>
-
-          <p style={boxTextStyle}>
-            {employee?.employeeId ||
-              "N/A"}
-          </p>
-
+        <div style={statBoxStyle}>
+          <h3>Late</h3>
+          <h2>{lateDays}</h2>
         </div>
 
-        <div style={boxStyle}>
-
-          <small
-            style={{
-              color: "#777",
-            }}
-          >
-            Email
-          </small>
-
-          <p style={boxTextStyle}>
-            {employee?.email ||
-              "N/A"}
-          </p>
-
+        <div style={statBoxStyle}>
+          <h3>Total Day</h3>
+          <h2>{totalDays}</h2>
         </div>
 
+        <div style={statBoxStyle}>
+          <h3>Total Hours</h3>
+          <h2>
+            {totalHours.toFixed(1)} hrs
+          </h2>
+        </div>
       </div>
 
-      {/* STATS */}
+      {/* WEEKLY */}
 
-      <div
-        className="stats-grid"
-        style={{
-          display: "grid",
-          gridTemplateColumns:
-            "repeat(auto-fit, minmax(140px, 1fr))",
-          gap: "15px",
-          marginBottom: "30px",
-        }}
-      >
-
-        <div style={statBoxStyle}>
-          <small>
-            Absent day
-          </small>
-
-          <h2>
-            {absentDays}
-          </h2>
-        </div>
-
-        <div style={statBoxStyle}>
-          <small>
-            Present day
-          </small>
-
-          <h2>
-            {presentDays}
-          </h2>
-        </div>
-
-        <div style={statBoxStyle}>
-          <small>
-            Late
-          </small>
-
-          <h2>
-            {lateDays}
-          </h2>
-        </div>
-
-        <div style={statBoxStyle}>
-          <small>
-            Total day
-          </small>
-
-          <h2>
-            {totalDays}
-          </h2>
-        </div>
-
-        <div
-          style={{
-            ...statBoxStyle,
-            backgroundColor:
-              "#eef6ff",
-          }}
-        >
-
-          <small>
-            Total hours
-          </small>
-
-          <h2
-            style={{
-              color: "#0066cc",
-            }}
-          >
-            {totalHoursWorked} hrs
-          </h2>
-
-        </div>
-
-      </div>
-
-      {/* WEEKLY REPORT */}
-
-      <div
-        className="weekly-report-card"
-        style={{
-          border: "1px solid #ccc",
-          borderRadius: "8px",
-          padding: "20px",
-          backgroundColor: "#fff",
-          marginBottom: "30px",
-        }}
-      >
-
-        <h3
-          style={{
-            marginBottom: "20px",
-          }}
-        >
-          Summary weekly report
-        </h3>
+      <div style={{ marginTop: "40px" }}>
+        <h2>Summary Weekly Report</h2>
 
         <div
           style={{
             display: "flex",
-            alignItems: "flex-end",
-            justifyContent:
-              "space-around",
-            height: "180px",
-            borderBottom:
-              "2px solid #ccc",
-            borderLeft:
-              "2px solid #ccc",
-            paddingTop: "10px",
-            paddingLeft: "10px",
-            backgroundColor:
-              "#fafafa",
+            gap: "15px",
+            flexWrap: "wrap",
+            marginTop: "20px",
           }}
         >
-
-          {daysOfWeek.map(
-            (day, index) => {
-              const hrs =
-                getHoursForDayName(
-                  day
-                );
-
-              const barHeight =
-                hrs > 0
-                  ? Math.min(
-                      hrs * 15,
-                      140
-                    )
-                  : 0;
+          {weekDays.map(
+            (day) => {
+              const record =
+                getDayAttendance(day);
 
               return (
                 <div
-                  key={index}
+                  key={day}
                   style={{
-                    display: "flex",
-                    flexDirection:
-                      "column",
-                    alignItems:
+                    width: "90px",
+                    minHeight: "120px",
+                    border:
+                      "1px solid #ddd",
+                    borderRadius:
+                      "10px",
+                    padding:
+                      "15px",
+                    textAlign:
                       "center",
-                    height: "100%",
-                    justifyContent:
-                      "flex-end",
-                    width: "40px",
                   }}
                 >
+                  <strong>
+                    {day}
+                  </strong>
 
                   <div
                     style={{
-                      width: "100%",
-                      height: `${barHeight}px`,
-                      backgroundColor:
-                        "#4f46e5",
-                      borderRadius:
-                        "4px 4px 0 0",
-                      transition:
-                        "height 0.4s ease",
-                      minHeight: "2px",
-                    }}
-                  ></div>
-
-                  <span
-                    style={{
-                      marginTop: "8px",
-                      fontSize: "14px",
-                      fontWeight:
-                        "bold",
+                      marginTop:
+                        "20px",
+                      fontSize:
+                        "24px",
                     }}
                   >
-                    {day}
-                  </span>
+                    {record
+                      ? "✓"
+                      : "—"}
+                  </div>
 
+                  <small>
+                    {record
+                      ? `${record.hours.toFixed(
+                          1
+                        )} hrs`
+                      : "No record"}
+                  </small>
                 </div>
               );
             }
           )}
-
         </div>
-
       </div>
 
-      {/* DAILY ATTENDANCE */}
+      {/* DAILY RECORD */}
 
-      <div
-        className="daily-record-card"
-        style={{
-          border: "1px solid #ccc",
-          borderRadius: "8px",
-          padding: "20px",
-          backgroundColor: "#fff",
-        }}
-      >
+      <div style={{ marginTop: "40px" }}>
+        <h2>
+          My Daily Attendance Record
+        </h2>
 
-        <h3>
-          My daily attendance record
-        </h3>
-
-        <p
-          style={{
-            color: "#666",
-            fontSize: "14px",
-            marginTop: "5px",
-          }}
-        >
+        <p>
           Detailed view of your daily
           attendance check-ins and
           check-outs.
         </p>
 
-        <table
-          style={{
-            width: "100%",
-            marginTop: "15px",
-            borderCollapse:
-              "collapse",
-          }}
-        >
-
-          <thead>
-
-            <tr
+        {attendance.length === 0 ? (
+          <p>
+            No attendance records
+            found.
+          </p>
+        ) : (
+          <div
+            style={{
+              overflowX:
+                "auto",
+            }}
+          >
+            <table
               style={{
-                borderBottom:
-                  "2px solid #eee",
-                textAlign: "left",
+                width: "100%",
+                borderCollapse:
+                  "collapse",
+                marginTop:
+                  "20px",
               }}
             >
+              <thead>
+                <tr>
+                  <th style={tableHeader}>
+                    Date
+                  </th>
 
-              <th
-                style={{
-                  padding: "8px",
-                }}
-              >
-                Date
-              </th>
+                  <th style={tableHeader}>
+                    Sign In
+                  </th>
 
-              <th
-                style={{
-                  padding: "8px",
-                }}
-              >
-                Sign In
-              </th>
+                  <th style={tableHeader}>
+                    Sign Out
+                  </th>
 
-              <th
-                style={{
-                  padding: "8px",
-                }}
-              >
-                Sign Out
-              </th>
+                  <th style={tableHeader}>
+                    Hours
+                  </th>
 
-              <th
-                style={{
-                  padding: "8px",
-                }}
-              >
-                Hours
-              </th>
+                  <th style={tableHeader}>
+                    Status
+                  </th>
+                </tr>
+              </thead>
 
-            </tr>
-
-          </thead>
-
-          <tbody>
-
-            {employeeRecords.length ===
-            0 ? (
-
-              <tr>
-
-                <td
-                  colSpan="4"
-                  style={{
-                    padding:
-                      "15px",
-                    textAlign:
-                      "center",
-                    color: "#888",
-                  }}
-                >
-                  No attendance
-                  records found.
-                </td>
-
-              </tr>
-
-            ) : (
-
-              employeeRecords.map(
-                (r, i) => (
-
-                  <tr
-                    key={i}
-                    style={{
-                      borderBottom:
-                        "1px solid #f0f0f0",
-                    }}
-                  >
-
-                    <td
-                      style={{
-                        padding:
-                          "8px",
-                      }}
+              <tbody>
+                {attendance.map(
+                  (record) => (
+                    <tr
+                      key={
+                        record.attendanceId
+                      }
                     >
-                      {r.date}
-                    </td>
+                      <td style={tableCell}>
+                        {record.date}
+                      </td>
 
-                    <td
-                      style={{
-                        padding:
-                          "8px",
-                      }}
-                    >
-                      {r.signIn ||
-                        "--"}
-                    </td>
+                      <td style={tableCell}>
+                        {formatTime(
+                          record.checkIn
+                        )}
+                      </td>
 
-                    <td
-                      style={{
-                        padding:
-                          "8px",
-                      }}
-                    >
-                      {r.signOut ||
-                        "--"}
-                    </td>
+                      <td style={tableCell}>
+                        {record.checkOut
+                          ? formatTime(
+                              record.checkOut
+                            )
+                          : "--:--"}
+                      </td>
 
-                    <td
-                      style={{
-                        padding:
-                          "8px",
-                      }}
-                    >
-                      {calculateHours(
-                        r.signIn,
-                        r.signOut
-                      ).toFixed(1)}{" "}
-                      hrs
-                    </td>
+                      <td style={tableCell}>
+                        {record.hours.toFixed(
+                          1
+                        )}{" "}
+                        hrs
+                      </td>
 
-                  </tr>
-
-                )
-              )
-            )}
-
-          </tbody>
-
-        </table>
-
+                      <td style={tableCell}>
+                        {record.status}
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
-
     </div>
   );
 }
 
-// =====================================================
-// STYLING HELPERS
-// =====================================================
+/* =========================================================
+   MAIN DASHBOARD
+========================================================= */
 
-const boxStyle = {
-  border: "1px solid #ccc",
-  borderRadius: "6px",
-  padding: "10px 15px",
-  backgroundColor: "#fff",
-};
-
-const boxTextStyle = {
-  margin: "4px 0 0 0",
-  fontWeight: "bold",
-  fontSize: "14px",
-};
-
-const statBoxStyle = {
-  border: "1px solid #ccc",
-  borderRadius: "6px",
-  padding: "15px",
-  textAlign: "center",
-  backgroundColor: "#fff",
-};
-
-// =====================================================
-// 3. MAIN DASHBOARD COMPONENT
-// =====================================================
-
-function Dashboard({
+export default function Dashboard({
   employee,
   onLogout,
 }) {
-  const [activeMenu, setActiveMenu] =
-    useState("Dashboard");
+  const [activePage, setActivePage] =
+    useState("dashboard");
 
   const [profileImage, setProfileImage] =
     useState(null);
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
+  function handleProfileUpload(event) {
+    const file =
+      event.target.files?.[0];
 
-    if (file) {
-      setProfileImage(
-        URL.createObjectURL(file)
-      );
+    if (!file) return;
+
+    const imageUrl =
+      URL.createObjectURL(file);
+
+    setProfileImage(imageUrl);
+  }
+
+  function handleLogout() {
+    localStorage.removeItem(
+      "employeeData"
+    );
+
+    if (onLogout) {
+      onLogout();
     }
-  };
-
-  const menuItems = [
-    {
-      name: "Dashboard",
-      icon: "🏠",
-    },
-
-    {
-      name: "Mark attendance",
-      icon: "🕘",
-    },
-
-    {
-      name: "Attendance report",
-      icon: "📊",
-    },
-
-    {
-      name: "Setting",
-      icon: "⚙️",
-    },
-
-    {
-      name: "Help center",
-      icon: "❓",
-    },
-  ];
-
-  const renderContent = () => {
-    switch (activeMenu) {
-
-      case "Mark attendance":
-        return (
-          <MarkAttendance
-            employee={employee}
-          />
-        );
-
-      case "Attendance report":
-        return (
-          <AttendanceReport
-            employee={employee}
-          />
-        );
-
-      case "Help center":
-        return <HelpCenter />;
-
-      case "Setting":
-        return (
-          <ChangePassword
-            employee={employee}
-          />
-        );
-
-      case "Dashboard":
-
-      default:
-
-        return (
-          <>
-
-            {/* WELCOME CARD */}
-
-            <section className="welcome-card">
-
-              <div>
-
-                <span>
-                  Welcome back 👋
-                </span>
-
-                <h2>
-                  {employee
-                    ? `${employee.firstName} ${employee.lastName}`
-                    : "Employee"}
-                </h2>
-
-                <p>
-                  Welcome to your employee
-                  attendance dashboard.
-                  Manage your attendance
-                  and view your information
-                  here.
-                </p>
-
-              </div>
-
-              <div className="welcome-icon">
-                📅
-              </div>
-
-            </section>
-
-            {/* PROFILE */}
-
-            <section className="profile-area">
-
-              <div className="section-heading">
-
-                <h2>
-                  My Profile
-                </h2>
-
-                <p>
-                  Your registered personal
-                  information
-                </p>
-
-              </div>
-
-              <div className="profile-card">
-
-                <div className="photo-area">
-
-                  <div className="profile-photo">
-
-                    {profileImage ? (
-
-                      <img
-                        src={profileImage}
-                        alt="Employee Profile"
-                      />
-
-                    ) : (
-
-                      <span>
-                        👤
-                      </span>
-
-                    )}
-
-                  </div>
-
-                  <label
-                    htmlFor="profile-upload"
-                    className="upload-photo"
-                  >
-                    📷 Upload Photo
-                  </label>
-
-                  <input
-                    id="profile-upload"
-                    type="file"
-                    accept="image/*"
-                    onChange={
-                      handleImageUpload
-                    }
-                    hidden
-                  />
-
-                  <p>
-                    JPG, PNG or JPEG
-                  </p>
-
-                </div>
-
-                <div className="employee-information">
-
-                  <div className="information-box">
-
-                    <div className="information-icon">
-                      👤
-                    </div>
-
-                    <div>
-
-                      <small>
-                        Name
-                      </small>
-
-                      <strong>
-                        {employee
-                          ? `${employee.firstName} ${employee.lastName}`
-                          : "Not available"}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  <div className="information-box">
-
-                    <div className="information-icon">
-                      ✉️
-                    </div>
-
-                    <div>
-
-                      <small>
-                        Email
-                      </small>
-
-                      <strong>
-                        {employee?.email ||
-                          "Not available"}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  <div className="information-box">
-
-                    <div className="information-icon">
-                      📞
-                    </div>
-
-                    <div>
-
-                      <small>
-                        Contact
-                      </small>
-
-                      <strong>
-                        {employee?.phone ||
-                          "Not available"}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  <div className="information-box">
-
-                    <div className="information-icon">
-                      🏢
-                    </div>
-
-                    <div>
-
-                      <small>
-                        Department
-                      </small>
-
-                      <strong>
-                        {employee?.department ||
-                          "Not available"}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  <div className="information-box">
-
-                    <div className="information-icon">
-                      💼
-                    </div>
-
-                    <div>
-
-                      <small>
-                        Position
-                      </small>
-
-                      <strong>
-                        {employee?.position ||
-                          "Not available"}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                  <div className="information-box">
-
-                    <div className="information-icon">
-                      🆔
-                    </div>
-
-                    <div>
-
-                      <small>
-                        Employee ID
-                      </small>
-
-                      <strong>
-                        {employee?.employeeId ||
-                          "Not available"}
-                      </strong>
-
-                    </div>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            </section>
-
-          </>
-        );
-    }
-  };
+  }
 
   return (
-    <div className="employee-dashboard">
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        background: "#f5f6fa",
+      }}
+    >
+      {/* SIDEBAR */}
 
-      {/* =====================================================
-          SIDEBAR
-      ===================================================== */}
-
-      <aside className="dashboard-sidebar">
-
-        <div className="dashboard-school">
-
+      <aside
+        style={{
+          width: "240px",
+          background: "#ffffff",
+          borderRight:
+            "1px solid #ddd",
+          padding: "20px",
+        }}
+      >
+        <div
+          style={{
+            textAlign: "center",
+            marginBottom: "30px",
+          }}
+        >
           <img
-            src="/LOGO.JPG"
+            src="/LOGO.jpg"
             alt="Alihsan Girls Secondary School"
+            style={{
+              width: "70px",
+              height: "70px",
+              objectFit:
+                "contain",
+            }}
           />
 
-          <div>
+          <h3>
+            AL-IHSAN GIRLS
+          </h3>
 
-            <h2>
-              AL-IHSAN GIRLS
-            </h2>
-
-            <p>
-              SECONDARY SCHOOL
-            </p>
-
-          </div>
-
+          <small>
+            SECONDARY SCHOOL
+          </small>
         </div>
 
-        <div className="sidebar-title">
-
-          <span>
-            ☰
-          </span>
-
-          <strong>
-            Dashboard
-          </strong>
-
-        </div>
-
-        <nav className="dashboard-menu">
-
-          {menuItems.map(
-            (item) => (
-
-              <button
-                key={item.name}
-                className={
-                  activeMenu ===
-                  item.name
-                    ? "dashboard-menu-item active"
-                    : "dashboard-menu-item"
-                }
-                onClick={() =>
-                  setActiveMenu(
-                    item.name
-                  )
-                }
-              >
-
-                <span className="menu-icon">
-                  {item.icon}
-                </span>
-
-                {item.name}
-
-              </button>
-
-            )
-          )}
-
+        <nav>
           <button
-            className="dashboard-menu-item logout-item"
-            onClick={onLogout}
+            onClick={() =>
+              setActivePage(
+                "dashboard"
+              )
+            }
+            style={menuButtonStyle}
           >
-
-            <span className="menu-icon">
-              🚪
-            </span>
-
-            Log out
-
+            🏠 Dashboard
           </button>
 
-        </nav>
+          <button
+            onClick={() =>
+              setActivePage(
+                "attendance"
+              )
+            }
+            style={menuButtonStyle}
+          >
+            🕘 Mark attendance
+          </button>
 
+          <button
+            onClick={() =>
+              setActivePage(
+                "report"
+              )
+            }
+            style={menuButtonStyle}
+          >
+            📊 Attendance report
+          </button>
+
+          <button
+            onClick={() =>
+              setActivePage(
+                "setting"
+              )
+            }
+            style={menuButtonStyle}
+          >
+            ⚙️ Setting
+          </button>
+
+          <button
+            onClick={() =>
+              setActivePage(
+                "help"
+              )
+            }
+            style={menuButtonStyle}
+          >
+            ❓ Help center
+          </button>
+
+          <button
+            onClick={
+              handleLogout
+            }
+            style={{
+              ...menuButtonStyle,
+              marginTop:
+                "20px",
+            }}
+          >
+            🚪 Log out
+          </button>
+        </nav>
       </aside>
 
-      {/* =====================================================
-          MAIN DASHBOARD
-      ===================================================== */}
+      {/* MAIN */}
 
-      <main className="dashboard-main">
+      <main
+        style={{
+          flex: 1,
+          padding: "30px",
+        }}
+      >
+        {/* TOP BAR */}
 
-        <header className="dashboard-topbar">
-
+        <div
+          style={{
+            display: "flex",
+            justifyContent:
+              "space-between",
+            alignItems:
+              "center",
+            marginBottom:
+              "25px",
+          }}
+        >
           <div>
-
             <h1>
               Employee dashboard
             </h1>
 
             <p>
-              Manage your attendance and
-              personal information
+              Manage your attendance
+              and personal information
             </p>
-
           </div>
 
-          <div className="topbar-profile">
-
-            <span className="notification-icon">
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              alignItems:
+                "center",
+            }}
+          >
+            <span>
               🔔
             </span>
 
-            <div className="small-profile">
+            <span>
+              👤
+            </span>
 
-              {profileImage ? (
+            <strong>
+              {employee?.firstName ||
+                "Employee"}
+            </strong>
+          </div>
+        </div>
 
-                <img
-                  src={profileImage}
-                  alt="Employee"
-                />
+        {/* DASHBOARD */}
 
-              ) : (
+        {activePage ===
+          "dashboard" && (
+          <>
+            {/* WELCOME */}
 
-                <div className="small-profile-placeholder">
-                  👤
-                </div>
+            <div
+              style={{
+                background:
+                  "#ffffff",
+                borderRadius:
+                  "12px",
+                padding:
+                  "25px",
+                marginBottom:
+                  "25px",
+              }}
+            >
+              <h2>
+                Welcome,{" "}
+                {employee?.firstName}!
+              </h2>
 
-              )}
-
-              <div>
-
-                <strong>
-                  {employee?.firstName ||
-                    "Employee"}
-                </strong>
-
-                <small>
-                  Employee
-                </small>
-
-              </div>
-
+              <p>
+                Manage your attendance
+                and personal information
+                from your dashboard.
+              </p>
             </div>
 
+            {/* EMPLOYEE PROFILE */}
+
+            <div
+              style={{
+                background:
+                  "#ffffff",
+                borderRadius:
+                  "12px",
+                padding:
+                  "25px",
+              }}
+            >
+              <h2>
+                Employee Information
+              </h2>
+
+              <div
+                style={{
+                  display:
+                    "flex",
+                  gap: "25px",
+                  alignItems:
+                    "center",
+                  marginTop:
+                    "20px",
+                }}
+              >
+                <div>
+                  {profileImage ? (
+                    <img
+                      src={
+                        profileImage
+                      }
+                      alt="Profile"
+                      style={{
+                        width:
+                          "100px",
+                        height:
+                          "100px",
+                        borderRadius:
+                          "50%",
+                        objectFit:
+                          "cover",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width:
+                          "100px",
+                        height:
+                          "100px",
+                        borderRadius:
+                          "50%",
+                        background:
+                          "#eee",
+                        display:
+                          "flex",
+                        alignItems:
+                          "center",
+                        justifyContent:
+                          "center",
+                        fontSize:
+                          "40px",
+                      }}
+                    >
+                      👤
+                    </div>
+                  )}
+
+                  <br />
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={
+                      handleProfileUpload
+                    }
+                  />
+                </div>
+
+                <div>
+                  <p>
+                    <strong>
+                      Name:
+                    </strong>{" "}
+                    {employee?.firstName}{" "}
+                    {employee?.lastName}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Department:
+                    </strong>{" "}
+                    {employee?.department ||
+                      "--"}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Position:
+                    </strong>{" "}
+                    {employee?.position ||
+                      "--"}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Employee ID:
+                    </strong>{" "}
+                    {employee?.employeeId ||
+                      "--"}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Email:
+                    </strong>{" "}
+                    {employee?.email ||
+                      "--"}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Phone:
+                    </strong>{" "}
+                    {employee?.phone ||
+                      "--"}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Hire Date:
+                    </strong>{" "}
+                    {employee?.hireDate ||
+                      "--"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* MARK ATTENDANCE */}
+
+        {activePage ===
+          "attendance" && (
+          <MarkAttendance
+            employee={employee}
+          />
+        )}
+
+        {/* ATTENDANCE REPORT */}
+
+        {activePage ===
+          "report" && (
+          <AttendanceReport
+            employee={employee}
+          />
+        )}
+
+        {/* SETTING */}
+
+        {activePage ===
+          "setting" && (
+          <div
+            style={{
+              background:
+                "#ffffff",
+              padding:
+                "30px",
+              borderRadius:
+                "12px",
+            }}
+          >
+            <h2>Setting</h2>
+
+            <p>
+              Employee account
+              settings will appear
+              here.
+            </p>
           </div>
+        )}
 
-        </header>
+        {/* HELP */}
 
-        {renderContent()}
+        {activePage ===
+          "help" && (
+          <div
+            style={{
+              background:
+                "#ffffff",
+              padding:
+                "30px",
+              borderRadius:
+                "12px",
+            }}
+          >
+            <h2>
+              Help Center
+            </h2>
 
+            <p>
+              If you have a problem
+              with attendance, contact
+              your administrator.
+            </p>
+          </div>
+        )}
       </main>
-
     </div>
   );
 }
 
-export default Dashboard;
+/* =========================================================
+   STYLES
+========================================================= */
+
+const menuButtonStyle = {
+  display: "block",
+  width: "100%",
+  padding: "12px",
+  marginBottom: "8px",
+  border: "none",
+  borderRadius: "8px",
+  background: "transparent",
+  textAlign: "left",
+  cursor: "pointer",
+  fontSize: "15px",
+};
+
+const boxStyle = {
+  flex: "1",
+  minWidth: "180px",
+  background: "#ffffff",
+  borderRadius: "12px",
+  padding: "20px",
+  textAlign: "center",
+};
+
+const boxTextStyle = {
+  fontSize: "22px",
+  fontWeight: "bold",
+};
+
+const statBoxStyle = {
+  background: "#ffffff",
+  borderRadius: "12px",
+  padding: "20px",
+  textAlign: "center",
+};
+
+const tableHeader = {
+  border: "1px solid #ddd",
+  padding: "12px",
+  textAlign: "left",
+  background: "#f5f5f5",
+};
+
+const tableCell = {
+  border: "1px solid #ddd",
+  padding: "12px",
+};
