@@ -12,6 +12,10 @@ import {
 
 const TANZANIA_TIME_ZONE = "Africa/Dar_es_Salaam";
 
+/* =========================================================
+   GET TODAY - TANZANIA DATE
+========================================================= */
+
 function getToday() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: TANZANIA_TIME_ZONE,
@@ -20,6 +24,10 @@ function getToday() {
     day: "2-digit",
   }).format(new Date());
 }
+
+/* =========================================================
+   FORMAT DATE
+========================================================= */
 
 function formatDate(value) {
   if (!value) return "--";
@@ -38,6 +46,10 @@ function formatDate(value) {
   }).format(date);
 }
 
+/* =========================================================
+   FORMAT TIME
+========================================================= */
+
 function formatTime(value) {
   if (!value) return "--:--";
 
@@ -55,6 +67,10 @@ function formatTime(value) {
     hour12: true,
   }).format(date);
 }
+
+/* =========================================================
+   CALCULATE HOURS
+========================================================= */
 
 function calculateHours(checkIn, checkOut) {
   if (!checkIn || !checkOut) {
@@ -81,236 +97,10 @@ function calculateHours(checkIn, checkOut) {
 }
 
 /* =========================================================
-   CONVERT BACKEND ATTENDANCE
+   TANZANIA DATE + TIME
 ========================================================= */
 
-function mapAttendance(item) {
-  return {
-    attendanceId: item.attendanceid,
-    employeeId: item.employeeid,
-    checkIn: item.checkin,
-    checkOut: item.checkout,
-    checkoutLatitude: item.checkout_latitude,
-    checkoutLongitude: item.checkout_longitude,
-    status: item.status || "PRESENT",
-    date: formatDate(item.checkin),
-    hours: calculateHours(item.checkin, item.checkout),
-  };
-}
-
-/* =========================================================
-   MARK ATTENDANCE
-========================================================= */
-
-function MarkAttendance({ employee }) {
-  const [attendance, setAttendance] = useState([]);
-  const [scanning, setScanning] = useState(false);
-  const [location, setLocation] = useState(null);
-  const [locationMessage, setLocationMessage] = useState(
-    "Location not detected"
-  );
-
-  /* -------------------------------------------------------
-     LOAD ATTENDANCE FROM BACKEND
-  ------------------------------------------------------- */
-
-  async function loadEmployeeAttendance() {
-    try {
-      const data = await getAttendance();
-
-      const employeeId = Number(employee?.employeeId);
-
-      const records = data
-        .filter(
-          (item) => Number(item.employeeid) === employeeId
-        )
-        .map(mapAttendance);
-
-      setAttendance(records);
-    } catch (error) {
-      console.error("Failed to load attendance:", error);
-      alert("Failed to load attendance from backend.");
-    }
-  }
-
-  useEffect(() => {
-    if (employee?.employeeId) {
-      loadEmployeeAttendance();
-    }
-  }, [employee]);
-
-  /* -------------------------------------------------------
-     DETECT LOCATION
-  ------------------------------------------------------- */
-
-  function handleDetectLocation() {
-    if (!navigator.geolocation) {
-      setLocationMessage(
-        "Geolocation is not supported by this browser."
-      );
-      return;
-    }
-
-    setLocationMessage("Detecting location...");
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-
-        setLocation({
-          latitude,
-          longitude,
-        });
-
-        setLocationMessage(
-          `Location detected: ${latitude.toFixed(
-            5
-          )}, ${longitude.toFixed(5)}`
-        );
-      },
-      (error) => {
-        console.error("Location error:", error);
-
-        setLocationMessage(
-          "Unable to detect location. Please allow location permission."
-        );
-      }
-    );
-  }
-
-  /* -------------------------------------------------------
-     CHECK SCHOOL LOCATION
-  ------------------------------------------------------- */
-
-  function isInsideSchool() {
-    /*
-      Current school coordinates from your database/project:
-
-      Latitude  = -6.7924
-      Longitude = 39.2083
-
-      For testing we use approximately 500 meters.
-    */
-
-    if (!location) {
-      return false;
-    }
-
-    const schoolLatitude = -6.19927;
-    const schoolLongitude = 39.307828;
-
-    const latitudeDifference =
-      location.latitude - schoolLatitude;
-
-    const longitudeDifference =
-      location.longitude - schoolLongitude;
-
-    const distance = Math.sqrt(
-      latitudeDifference * latitudeDifference +
-        longitudeDifference * longitudeDifference
-    );
-
-    /*
-      Approximate degree-to-meter conversion.
-      0.005 degrees is approximately 500m.
-    */
-
-    return distance <= 0.005;
-  }
-
-  /* -------------------------------------------------------
-     BIOMETRIC SCAN
-  ------------------------------------------------------- */
-
-  async function performBiometricScan() {
-    /*
-      This is browser WebAuthn testing.
-
-      It is NOT yet connected to the biometric table
-      in the Spring Boot backend.
-    */
-
-    if (
-      window.PublicKeyCredential &&
-      navigator.credentials
-    ) {
-      try {
-        const available =
-          await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-
-        if (available) {
-          /*
-            Browser biometric/security key attempt.
-
-            For now we use fallback because the actual
-            fingerprint matching is not yet connected
-            to /api/biometric.
-          */
-
-          console.log(
-            "Platform biometric authenticator available."
-          );
-        }
-      } catch (error) {
-        console.log(
-          "Biometric test failed, using fallback.",
-          error
-        );
-      }
-    }
-
-    return true;
-  }
-
-  /* -------------------------------------------------------
-     CHECK IN / CHECK OUT
-  ------------------------------------------------------- */
-
-  async function handleScan() {
-    if (!employee?.employeeId) {
-      alert("Employee information is missing.");
-      return;
-    }
-
-    if (!location) {
-      alert("Please detect your location first.");
-      return;
-    }
-
-    if (!isInsideSchool()) {
-      alert(
-        "You are outside the school attendance area."
-      );
-      return;
-    }
-
-    setScanning(true);
-
-    try {
-      /* -----------------------------------------------
-         BIOMETRIC
-      ------------------------------------------------ */
-
-      const biometricSuccess =
-        await performBiometricScan();
-
-      if (!biometricSuccess) {
-        alert("Biometric verification failed.");
-        return;
-      }
-
-      /* -----------------------------------------------
-         GET TODAY'S RECORD
-      ------------------------------------------------ */
-
-      const today = getToday();
-
-      const existingRecord = attendance.find(
-        (record) =>
-          record.date === today
-      );
-      function getTanzaniaDateTime() {
+function getTanzaniaDateTime() {
   const now = new Date();
 
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -333,62 +123,304 @@ function MarkAttendance({ employee }) {
   return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}:${values.second}`;
 }
 
-      /* -----------------------------------------------
+/* =========================================================
+   CONVERT BACKEND ATTENDANCE
+========================================================= */
+
+function mapAttendance(item) {
+  return {
+    attendanceId: item.attendanceid,
+    employeeId: item.employeeid,
+    checkIn: item.checkin,
+    checkOut: item.checkout,
+    checkoutLatitude: item.checkout_latitude,
+    checkoutLongitude: item.checkout_longitude,
+    status: item.status || "PRESENT",
+    date: formatDate(item.checkin),
+    hours: calculateHours(
+      item.checkin,
+      item.checkout
+    ),
+  };
+}
+
+/* =========================================================
+   MARK ATTENDANCE
+========================================================= */
+
+function MarkAttendance({ employee }) {
+  const [attendance, setAttendance] = useState([]);
+  const [scanning, setScanning] = useState(false);
+  const [location, setLocation] = useState(null);
+
+  const [locationMessage, setLocationMessage] =
+    useState("Location not detected");
+
+  /* =======================================================
+     LOAD EMPLOYEE ATTENDANCE
+  ======================================================= */
+
+  async function loadEmployeeAttendance() {
+    try {
+      const data = await getAttendance();
+
+      const employeeId = Number(
+        employee?.employeeId
+      );
+
+      const records = data
+        .filter(
+          (item) =>
+            Number(item.employeeid) === employeeId
+        )
+        .map(mapAttendance);
+
+      setAttendance(records);
+    } catch (error) {
+      console.error(
+        "Failed to load employee attendance:",
+        error
+      );
+    }
+  }
+
+  /* =======================================================
+     LOAD ATTENDANCE WHEN EMPLOYEE CHANGES
+  ======================================================= */
+
+  useEffect(() => {
+    if (employee?.employeeId) {
+      loadEmployeeAttendance();
+    }
+  }, [employee]);
+
+  /* =======================================================
+     DETECT LOCATION
+  ======================================================= */
+
+  function handleDetectLocation() {
+    if (!navigator.geolocation) {
+      setLocationMessage(
+        "Geolocation is not supported by this browser."
+      );
+
+      return;
+    }
+
+    setLocationMessage(
+      "Detecting location..."
+    );
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude =
+          position.coords.latitude;
+
+        const longitude =
+          position.coords.longitude;
+
+        setLocation({
+          latitude,
+          longitude,
+        });
+
+        setLocationMessage(
+          `Location detected: ${latitude.toFixed(
+            5
+          )}, ${longitude.toFixed(5)}`
+        );
+      },
+      (error) => {
+        console.error(
+          "Location error:",
+          error
+        );
+
+        setLocationMessage(
+          "Unable to detect location. Please allow location permission."
+        );
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  }
+
+  /* =======================================================
+     CHECK SCHOOL LOCATION
+  ======================================================= */
+
+  function isInsideSchool() {
+    if (!location) {
+      return false;
+    }
+
+    /*
+      SCHOOL COORDINATES
+
+      Latitude  = -6.19927
+      Longitude = 39.307828
+
+      Current testing radius:
+      approximately 500 meters.
+    */
+
+    const schoolLatitude = -6.19927;
+    const schoolLongitude = 39.307828;
+
+    const latitudeDifference =
+      location.latitude - schoolLatitude;
+
+    const longitudeDifference =
+      location.longitude - schoolLongitude;
+
+    const distance = Math.sqrt(
+      latitudeDifference *
+        latitudeDifference +
+        longitudeDifference *
+          longitudeDifference
+    );
+
+    return distance <= 0.005;
+  }
+
+  /* =======================================================
+     CHECK IN / CHECK OUT
+  ======================================================= */
+
+  async function handleScan() {
+    if (!employee?.employeeId) {
+      alert(
+        "Employee information is missing."
+      );
+
+      return;
+    }
+
+    if (!location) {
+      alert(
+        "Please detect your location first."
+      );
+
+      return;
+    }
+
+    if (!isInsideSchool()) {
+      alert(
+        "You are outside the school attendance area."
+      );
+
+      return;
+    }
+
+    setScanning(true);
+
+    try {
+      /* =================================================
+         GET TODAY
+      ================================================= */
+
+      const today = getToday();
+
+      const existingRecord =
+        attendance.find(
+          (record) =>
+            record.date === today
+        );
+
+      /* =================================================
          CHECK IN
-      ------------------------------------------------ */
+      ================================================= */
 
       if (!existingRecord) {
-        const checkInTime = getTanzaniaDateTime();
+        const checkInTime =
+          getTanzaniaDateTime();
 
         const attendanceData = {
-          employeeid: Number(employee.employeeId),
+          employeeid: Number(
+            employee.employeeId
+          ),
+
           checkin: checkInTime,
+
           checkout: null,
+
           checkout_latitude: null,
+
           checkout_longitude: null,
+
           status: "PRESENT",
         };
 
-        await createAttendance(attendanceData);
+        console.log(
+          "Creating attendance:",
+          attendanceData
+        );
 
-        alert("Check In successful!");
+        await createAttendance(
+          attendanceData
+        );
+
+        alert(
+          "Check In successful!"
+        );
 
         await loadEmployeeAttendance();
 
         return;
       }
 
-      /* -----------------------------------------------
+      /* =================================================
          CHECK OUT
-      ------------------------------------------------ */
+      ================================================= */
 
       if (!existingRecord.checkOut) {
-        const checkOutTime = getTanzaniaDateTime();
+        const checkOutTime =
+          getTanzaniaDateTime();
 
         const attendanceData = {
-          employeeid: Number(employee.employeeId),
-          checkin: existingRecord.checkIn,
+          employeeid: Number(
+            employee.employeeId
+          ),
+
+          checkin:
+            existingRecord.checkIn,
+
           checkout: checkOutTime,
-          checkout_latitude: location.latitude,
-          checkout_longitude: location.longitude,
+
+          checkout_latitude:
+            location.latitude,
+
+          checkout_longitude:
+            location.longitude,
+
           status: "PRESENT",
         };
+
+        console.log(
+          "Updating attendance:",
+          attendanceData
+        );
 
         await updateAttendance(
           existingRecord.attendanceId,
           attendanceData
         );
 
-        alert("Check Out successful!");
+        alert(
+          "Check Out successful!"
+        );
 
         await loadEmployeeAttendance();
 
         return;
       }
 
-      /* -----------------------------------------------
+      /* =================================================
          ALREADY COMPLETED
-      ------------------------------------------------ */
+      ================================================= */
 
       alert(
         "You have already completed today's attendance."
@@ -407,25 +439,33 @@ function MarkAttendance({ employee }) {
     }
   }
 
-  /* -------------------------------------------------------
+  /* =======================================================
      TODAY'S ATTENDANCE
-  ------------------------------------------------------- */
+  ======================================================= */
 
   const today = getToday();
 
-  const todayRecord = attendance.find(
-    (record) => record.date === today
-  );
+  const todayRecord =
+    attendance.find(
+      (record) =>
+        record.date === today
+    );
 
-  const totalHours = attendance.reduce(
-    (total, record) =>
-      total + Number(record.hours || 0),
-    0
-  );
+  /* =======================================================
+     TOTAL HOURS
+  ======================================================= */
 
-  /* -------------------------------------------------------
+  const totalHours =
+    attendance.reduce(
+      (total, record) =>
+        total +
+        Number(record.hours || 0),
+      0
+    );
+
+  /* =======================================================
      RENDER
-  ------------------------------------------------------- */
+  ======================================================= */
 
   return (
     <div style={{ padding: "30px" }}>
@@ -434,11 +474,86 @@ function MarkAttendance({ employee }) {
       <p>
         Welcome,{" "}
         <strong>
-          {employee?.firstName} {employee?.lastName}
+          {employee?.firstName}{" "}
+          {employee?.lastName}
         </strong>
       </p>
 
-      {/* BIOMETRIC */}
+      {/* =================================================
+          ATTENDANCE VERIFICATION
+      ================================================= */}
+
+      <div
+        style={{
+          background: "#f5f6fa",
+          padding: "15px",
+          borderRadius: "8px",
+          marginBottom: "15px",
+          maxWidth: "600px",
+        }}
+      >
+        <p>
+          <strong>
+            Attendance Verification:
+          </strong>{" "}
+          Location verification
+        </p>
+
+        <p>
+          Your attendance will be recorded
+          after confirming that you are
+          inside the school area.
+        </p>
+
+        <p>
+          <strong>
+            WebAuthn / Fingerprint:
+          </strong>{" "}
+          Not required
+        </p>
+      </div>
+
+      {/* =================================================
+          CHECK IN / CHECK OUT BUTTON
+      ================================================= */}
+
+      <button
+        onClick={handleScan}
+        disabled={
+          scanning ||
+          !location ||
+          !isInsideSchool()
+        }
+        style={{
+          padding: "12px 25px",
+          border: "none",
+          borderRadius: "8px",
+          cursor:
+            scanning ||
+            !location ||
+            !isInsideSchool()
+              ? "not-allowed"
+              : "pointer",
+          opacity:
+            scanning ||
+            !location ||
+            !isInsideSchool()
+              ? 0.6
+              : 1,
+        }}
+      >
+        {scanning
+          ? "Processing..."
+          : todayRecord?.checkOut
+          ? "Attendance Completed"
+          : todayRecord?.checkIn
+          ? "Check Out"
+          : "Check In"}
+      </button>
+
+      {/* =================================================
+          LOCATION
+      ================================================= */}
 
       <div
         style={{
@@ -449,52 +564,18 @@ function MarkAttendance({ employee }) {
           maxWidth: "600px",
         }}
       >
-        <h3>🔐 Biometric Attendance</h3>
+        <h3>
+          📍 Attendance Location
+        </h3>
 
         <p>
-          Use your fingerprint/biometric verification
-          to record attendance.
+          {locationMessage}
         </p>
 
         <button
-          onClick={handleScan}
-          disabled={scanning}
-          style={{
-            padding: "12px 25px",
-            border: "none",
-            borderRadius: "8px",
-            cursor: scanning
-              ? "not-allowed"
-              : "pointer",
-          }}
-        >
-          {scanning
-            ? "Scanning..."
-            : todayRecord?.checkOut
-            ? "Attendance Completed"
-            : todayRecord?.checkIn
-            ? "Check Out"
-            : "Check In"}
-        </button>
-      </div>
-
-      {/* LOCATION */}
-
-      <div
-        style={{
-          border: "1px solid #ddd",
-          borderRadius: "12px",
-          padding: "25px",
-          marginTop: "20px",
-          maxWidth: "600px",
-        }}
-      >
-        <h3>📍 Attendance Location</h3>
-
-        <p>{locationMessage}</p>
-
-        <button
-          onClick={handleDetectLocation}
+          onClick={
+            handleDetectLocation
+          }
           style={{
             padding: "10px 20px",
             border: "none",
@@ -506,15 +587,23 @@ function MarkAttendance({ employee }) {
         </button>
 
         {location && (
-          <div style={{ marginTop: "15px" }}>
+          <div
+            style={{
+              marginTop: "15px",
+            }}
+          >
             <p>
               Latitude:{" "}
-              {location.latitude.toFixed(6)}
+              {location.latitude.toFixed(
+                6
+              )}
             </p>
 
             <p>
               Longitude:{" "}
-              {location.longitude.toFixed(6)}
+              {location.longitude.toFixed(
+                6
+              )}
             </p>
 
             <p>
@@ -525,11 +614,23 @@ function MarkAttendance({ employee }) {
                   : "NO"}
               </strong>
             </p>
+
+            <p>
+              Attendance Location
+              Verification:{" "}
+              <strong>
+                {isInsideSchool()
+                  ? "PASSED"
+                  : "FAILED"}
+              </strong>
+            </p>
           </div>
         )}
       </div>
 
-      {/* TODAY */}
+      {/* =================================================
+          TODAY
+      ================================================= */}
 
       <div
         style={{
@@ -568,22 +669,38 @@ function MarkAttendance({ employee }) {
 
           <p style={boxTextStyle}>
             {todayRecord
-              ? todayRecord.hours.toFixed(1)
+              ? todayRecord.hours.toFixed(
+                  1
+                )
               : "0.0"}{" "}
             hrs
           </p>
         </div>
       </div>
 
-      {/* HISTORY */}
+      {/* =================================================
+          HISTORY
+      ================================================= */}
 
-      <div style={{ marginTop: "40px" }}>
-        <h2>Employee Attendance History</h2>
+      <div
+        style={{
+          marginTop: "40px",
+        }}
+      >
+        <h2>
+          Employee Attendance History
+        </h2>
 
         {attendance.length === 0 ? (
-          <p>No attendance records found.</p>
+          <p>
+            No attendance records found.
+          </p>
         ) : (
-          <div style={{ overflowX: "auto" }}>
+          <div
+            style={{
+              overflowX: "auto",
+            }}
+          >
             <table
               style={{
                 width: "100%",
@@ -594,27 +711,39 @@ function MarkAttendance({ employee }) {
             >
               <thead>
                 <tr>
-                  <th style={tableHeader}>
+                  <th
+                    style={tableHeader}
+                  >
                     Date
                   </th>
 
-                  <th style={tableHeader}>
+                  <th
+                    style={tableHeader}
+                  >
                     Sign In
                   </th>
 
-                  <th style={tableHeader}>
+                  <th
+                    style={tableHeader}
+                  >
                     Sign Out
                   </th>
 
-                  <th style={tableHeader}>
+                  <th
+                    style={tableHeader}
+                  >
                     Hours
                   </th>
 
-                  <th style={tableHeader}>
+                  <th
+                    style={tableHeader}
+                  >
                     Status
                   </th>
 
-                  <th style={tableHeader}>
+                  <th
+                    style={tableHeader}
+                  >
                     Checkout Location
                   </th>
                 </tr>
@@ -628,17 +757,23 @@ function MarkAttendance({ employee }) {
                         record.attendanceId
                       }
                     >
-                      <td style={tableCell}>
+                      <td
+                        style={tableCell}
+                      >
                         {record.date}
                       </td>
 
-                      <td style={tableCell}>
+                      <td
+                        style={tableCell}
+                      >
                         {formatTime(
                           record.checkIn
                         )}
                       </td>
 
-                      <td style={tableCell}>
+                      <td
+                        style={tableCell}
+                      >
                         {record.checkOut
                           ? formatTime(
                               record.checkOut
@@ -646,22 +781,28 @@ function MarkAttendance({ employee }) {
                           : "--:--"}
                       </td>
 
-                      <td style={tableCell}>
+                      <td
+                        style={tableCell}
+                      >
                         {record.hours.toFixed(
                           1
                         )}{" "}
                         hrs
                       </td>
 
-                      <td style={tableCell}>
+                      <td
+                        style={tableCell}
+                      >
                         {record.status}
                       </td>
 
-                      <td style={tableCell}>
+                      <td
+                        style={tableCell}
+                      >
                         {record.checkoutLatitude !==
-                          null &&
+                            null &&
                         record.checkoutLongitude !==
-                          null
+                            null
                           ? `${record.checkoutLatitude}, ${record.checkoutLongitude}`
                           : "Not available"}
                       </td>
@@ -674,7 +815,9 @@ function MarkAttendance({ employee }) {
         )}
       </div>
 
-      {/* TOTAL */}
+      {/* =================================================
+          TOTAL
+      ================================================= */}
 
       <div
         style={{
@@ -694,12 +837,15 @@ function MarkAttendance({ employee }) {
 ========================================================= */
 
 function AttendanceReport({ employee }) {
-  const [attendance, setAttendance] = useState(
-    []
-  );
+  const [attendance, setAttendance] =
+    useState([]);
 
   const [loading, setLoading] =
     useState(true);
+
+  /* =======================================================
+     LOAD ATTENDANCE
+  ======================================================= */
 
   async function loadAttendance() {
     try {
@@ -739,33 +885,38 @@ function AttendanceReport({ employee }) {
     }
   }, [employee]);
 
-  /* -------------------------------------------------------
+  /* =======================================================
      STATISTICS
-  ------------------------------------------------------- */
+  ======================================================= */
 
-  const presentDays = attendance.filter(
-    (record) =>
-      record.status === "PRESENT"
-  ).length;
+  const presentDays =
+    attendance.filter(
+      (record) =>
+        record.status === "PRESENT"
+    ).length;
 
-  const lateDays = attendance.filter(
-    (record) =>
-      record.status === "LATE"
-  ).length;
+  const lateDays =
+    attendance.filter(
+      (record) =>
+        record.status === "LATE"
+    ).length;
 
-  const totalDays = attendance.length;
+  const totalDays =
+    attendance.length;
 
-  const totalHours = attendance.reduce(
-    (total, record) =>
-      total + Number(record.hours || 0),
-    0
-  );
+  const totalHours =
+    attendance.reduce(
+      (total, record) =>
+        total +
+        Number(record.hours || 0),
+      0
+    );
 
   const absentDays = 0;
 
-  /* -------------------------------------------------------
+  /* =======================================================
      WEEKLY REPORT
-  ------------------------------------------------------- */
+  ======================================================= */
 
   const weekDays = [
     "Mon",
@@ -817,18 +968,26 @@ function AttendanceReport({ employee }) {
 
     return attendance.find(
       (record) =>
-        record.date === dateString
+        record.date ===
+        dateString
     );
   }
 
-  /* -------------------------------------------------------
-     RENDER
-  ------------------------------------------------------- */
+  /* =======================================================
+     LOADING
+  ======================================================= */
 
   if (loading) {
     return (
-      <div style={{ padding: "30px" }}>
-        <h2>Attendance Report</h2>
+      <div
+        style={{
+          padding: "30px",
+        }}
+      >
+        <h2>
+          Attendance Report
+        </h2>
+
         <p>
           Loading attendance data...
         </p>
@@ -836,9 +995,19 @@ function AttendanceReport({ employee }) {
     );
   }
 
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
   return (
-    <div style={{ padding: "30px" }}>
-      <h2>Attendance Report</h2>
+    <div
+      style={{
+        padding: "30px",
+      }}
+    >
+      <h2>
+        Attendance Report
+      </h2>
 
       <p>
         Detailed attendance report for{" "}
@@ -848,7 +1017,9 @@ function AttendanceReport({ employee }) {
         </strong>
       </p>
 
-      {/* STATISTICS */}
+      {/* =================================================
+          STATISTICS
+      ================================================= */}
 
       <div
         style={{
@@ -861,36 +1032,60 @@ function AttendanceReport({ employee }) {
       >
         <div style={statBoxStyle}>
           <h3>Absent Day</h3>
-          <h2>{absentDays}</h2>
+
+          <h2>
+            {absentDays}
+          </h2>
         </div>
 
         <div style={statBoxStyle}>
           <h3>Present Day</h3>
-          <h2>{presentDays}</h2>
+
+          <h2>
+            {presentDays}
+          </h2>
         </div>
 
         <div style={statBoxStyle}>
           <h3>Late</h3>
-          <h2>{lateDays}</h2>
+
+          <h2>
+            {lateDays}
+          </h2>
         </div>
 
         <div style={statBoxStyle}>
           <h3>Total Day</h3>
-          <h2>{totalDays}</h2>
+
+          <h2>
+            {totalDays}
+          </h2>
         </div>
 
         <div style={statBoxStyle}>
           <h3>Total Hours</h3>
+
           <h2>
-            {totalHours.toFixed(1)} hrs
+            {totalHours.toFixed(
+              1
+            )}{" "}
+            hrs
           </h2>
         </div>
       </div>
 
-      {/* WEEKLY */}
+      {/* =================================================
+          WEEKLY REPORT
+      ================================================= */}
 
-      <div style={{ marginTop: "40px" }}>
-        <h2>Summary Weekly Report</h2>
+      <div
+        style={{
+          marginTop: "40px",
+        }}
+      >
+        <h2>
+          Summary Weekly Report
+        </h2>
 
         <div
           style={{
@@ -903,7 +1098,9 @@ function AttendanceReport({ employee }) {
           {weekDays.map(
             (day) => {
               const record =
-                getDayAttendance(day);
+                getDayAttendance(
+                  day
+                );
 
               return (
                 <div
@@ -915,8 +1112,7 @@ function AttendanceReport({ employee }) {
                       "1px solid #ddd",
                     borderRadius:
                       "10px",
-                    padding:
-                      "15px",
+                    padding: "15px",
                     textAlign:
                       "center",
                   }}
@@ -952,9 +1148,15 @@ function AttendanceReport({ employee }) {
         </div>
       </div>
 
-      {/* DAILY RECORD */}
+      {/* =================================================
+          DAILY RECORD
+      ================================================= */}
 
-      <div style={{ marginTop: "40px" }}>
+      <div
+        style={{
+          marginTop: "40px",
+        }}
+      >
         <h2>
           My Daily Attendance Record
         </h2>
@@ -967,14 +1169,12 @@ function AttendanceReport({ employee }) {
 
         {attendance.length === 0 ? (
           <p>
-            No attendance records
-            found.
+            No attendance records found.
           </p>
         ) : (
           <div
             style={{
-              overflowX:
-                "auto",
+              overflowX: "auto",
             }}
           >
             <table
@@ -982,29 +1182,38 @@ function AttendanceReport({ employee }) {
                 width: "100%",
                 borderCollapse:
                   "collapse",
-                marginTop:
-                  "20px",
+                marginTop: "20px",
               }}
             >
               <thead>
                 <tr>
-                  <th style={tableHeader}>
+                  <th
+                    style={tableHeader}
+                  >
                     Date
                   </th>
 
-                  <th style={tableHeader}>
+                  <th
+                    style={tableHeader}
+                  >
                     Sign In
                   </th>
 
-                  <th style={tableHeader}>
+                  <th
+                    style={tableHeader}
+                  >
                     Sign Out
                   </th>
 
-                  <th style={tableHeader}>
+                  <th
+                    style={tableHeader}
+                  >
                     Hours
                   </th>
 
-                  <th style={tableHeader}>
+                  <th
+                    style={tableHeader}
+                  >
                     Status
                   </th>
                 </tr>
@@ -1018,17 +1227,23 @@ function AttendanceReport({ employee }) {
                         record.attendanceId
                       }
                     >
-                      <td style={tableCell}>
+                      <td
+                        style={tableCell}
+                      >
                         {record.date}
                       </td>
 
-                      <td style={tableCell}>
+                      <td
+                        style={tableCell}
+                      >
                         {formatTime(
                           record.checkIn
                         )}
                       </td>
 
-                      <td style={tableCell}>
+                      <td
+                        style={tableCell}
+                      >
                         {record.checkOut
                           ? formatTime(
                               record.checkOut
@@ -1036,14 +1251,18 @@ function AttendanceReport({ employee }) {
                           : "--:--"}
                       </td>
 
-                      <td style={tableCell}>
+                      <td
+                        style={tableCell}
+                      >
                         {record.hours.toFixed(
                           1
                         )}{" "}
                         hrs
                       </td>
 
-                      <td style={tableCell}>
+                      <td
+                        style={tableCell}
+                      >
                         {record.status}
                       </td>
                     </tr>
@@ -1072,6 +1291,10 @@ export default function Dashboard({
   const [profileImage, setProfileImage] =
     useState(null);
 
+  /* =======================================================
+     PROFILE IMAGE
+  ======================================================= */
+
   function handleProfileUpload(event) {
     const file =
       event.target.files?.[0];
@@ -1084,6 +1307,10 @@ export default function Dashboard({
     setProfileImage(imageUrl);
   }
 
+  /* =======================================================
+     LOGOUT
+  ======================================================= */
+
   function handleLogout() {
     localStorage.removeItem(
       "employeeData"
@@ -1094,6 +1321,10 @@ export default function Dashboard({
     }
   }
 
+  /* =======================================================
+     RENDER
+  ======================================================= */
+
   return (
     <div
       style={{
@@ -1102,7 +1333,9 @@ export default function Dashboard({
         background: "#f5f6fa",
       }}
     >
-      {/* SIDEBAR */}
+      {/* =================================================
+          SIDEBAR
+      ================================================= */}
 
       <aside
         style={{
@@ -1125,8 +1358,7 @@ export default function Dashboard({
             style={{
               width: "70px",
               height: "70px",
-              objectFit:
-                "contain",
+              objectFit: "contain",
             }}
           />
 
@@ -1146,7 +1378,9 @@ export default function Dashboard({
                 "dashboard"
               )
             }
-            style={menuButtonStyle}
+            style={
+              menuButtonStyle
+            }
           >
             🏠 Dashboard
           </button>
@@ -1157,7 +1391,9 @@ export default function Dashboard({
                 "attendance"
               )
             }
-            style={menuButtonStyle}
+            style={
+              menuButtonStyle
+            }
           >
             🕘 Mark attendance
           </button>
@@ -1168,7 +1404,9 @@ export default function Dashboard({
                 "report"
               )
             }
-            style={menuButtonStyle}
+            style={
+              menuButtonStyle
+            }
           >
             📊 Attendance report
           </button>
@@ -1179,7 +1417,9 @@ export default function Dashboard({
                 "setting"
               )
             }
-            style={menuButtonStyle}
+            style={
+              menuButtonStyle
+            }
           >
             ⚙️ Setting
           </button>
@@ -1190,7 +1430,9 @@ export default function Dashboard({
                 "help"
               )
             }
-            style={menuButtonStyle}
+            style={
+              menuButtonStyle
+            }
           >
             ❓ Help center
           </button>
@@ -1201,8 +1443,7 @@ export default function Dashboard({
             }
             style={{
               ...menuButtonStyle,
-              marginTop:
-                "20px",
+              marginTop: "20px",
             }}
           >
             🚪 Log out
@@ -1210,7 +1451,9 @@ export default function Dashboard({
         </nav>
       </aside>
 
-      {/* MAIN */}
+      {/* =================================================
+          MAIN
+      ================================================= */}
 
       <main
         style={{
@@ -1218,17 +1461,17 @@ export default function Dashboard({
           padding: "30px",
         }}
       >
-        {/* TOP BAR */}
+        {/* =================================================
+            TOP BAR
+        ================================================= */}
 
         <div
           style={{
             display: "flex",
             justifyContent:
               "space-between",
-            alignItems:
-              "center",
-            marginBottom:
-              "25px",
+            alignItems: "center",
+            marginBottom: "25px",
           }}
         >
           <div>
@@ -1246,17 +1489,12 @@ export default function Dashboard({
             style={{
               display: "flex",
               gap: "10px",
-              alignItems:
-                "center",
+              alignItems: "center",
             }}
           >
-            <span>
-              🔔
-            </span>
+            <span>🔔</span>
 
-            <span>
-              👤
-            </span>
+            <span>👤</span>
 
             <strong>
               {employee?.firstName ||
@@ -1265,7 +1503,9 @@ export default function Dashboard({
           </div>
         </div>
 
-        {/* DASHBOARD */}
+        {/* =================================================
+            DASHBOARD
+        ================================================= */}
 
         {activePage ===
           "dashboard" && (
@@ -1382,8 +1622,12 @@ export default function Dashboard({
                     <strong>
                       Name:
                     </strong>{" "}
-                    {employee?.firstName}{" "}
-                    {employee?.lastName}
+                    {
+                      employee?.firstName
+                    }{" "}
+                    {
+                      employee?.lastName
+                    }
                   </p>
 
                   <p>
@@ -1439,7 +1683,9 @@ export default function Dashboard({
           </>
         )}
 
-        {/* MARK ATTENDANCE */}
+        {/* =================================================
+            MARK ATTENDANCE
+        ================================================= */}
 
         {activePage ===
           "attendance" && (
@@ -1448,7 +1694,9 @@ export default function Dashboard({
           />
         )}
 
-        {/* ATTENDANCE REPORT */}
+        {/* =================================================
+            ATTENDANCE REPORT
+        ================================================= */}
 
         {activePage ===
           "report" && (
@@ -1457,7 +1705,9 @@ export default function Dashboard({
           />
         )}
 
-        {/* SETTING */}
+        {/* =================================================
+            SETTING
+        ================================================= */}
 
         {activePage ===
           "setting" && (
@@ -1471,7 +1721,9 @@ export default function Dashboard({
                 "12px",
             }}
           >
-            <h2>Setting</h2>
+            <h2>
+              Setting
+            </h2>
 
             <p>
               Employee account
@@ -1481,7 +1733,9 @@ export default function Dashboard({
           </div>
         )}
 
-        {/* HELP */}
+        {/* =================================================
+            HELP
+        ================================================= */}
 
         {activePage ===
           "help" && (

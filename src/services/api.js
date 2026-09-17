@@ -170,33 +170,54 @@ throw new Error("Failed to fetch administrators");
 
 return response.json();
 }
-
-
-
 //BIOMETRIC
 
-
 export async function getBiometrics() {
-const response = await fetch(`${API_BASE_URL}/biometric`);
+  const response = await fetch(`${API_BASE_URL}/biometric`);
 
-if (!response.ok) {
-throw new Error("Failed to fetch biometric records");
+  if (!response.ok) {
+    throw new Error("Failed to fetch biometric records");
+  }
+
+  return response.json();
 }
 
-return response.json();
-}
-
- 
 
 // SYSTEM SETTINGS
 
-
 export async function getSystemSettings() {
-const response = await fetch(`${API_BASE_URL}/system`);
+  const response = await fetch(`${API_BASE_URL}/system`);
 
-if (!response.ok) {
-throw new Error("Failed to fetch system settings");
+  if (!response.ok) {
+    throw new Error("Failed to fetch system settings");
+  }
+
+  return response.json();
 }
 
-return response.json();
+
+// BIOMETRIC ACTIONS
+
+export async function createBiometric(biometric) {
+  const response = await fetch(`${API_BASE_URL}/biometric`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(biometric),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to register biometric");
+  }
+
+  return response.text();
+}
+
+export async function getBiometricByEmployee(employeeId) {
+  const biometrics = await getBiometrics();
+
+  return biometrics.find(
+    (item) => Number(item.employeeid) === Number(employeeId)
+  );
 }
